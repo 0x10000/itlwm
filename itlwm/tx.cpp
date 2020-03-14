@@ -147,11 +147,11 @@ iwm_enable_txq(struct iwm_softc *sc, int sta_id, int qid, int fifo)
         iwm_write_prph(sc, IWM_SCD_QUEUE_RDPTR(qid), 0);
 
         iwm_write_mem32(sc,
-            sc->sched_base + IWM_SCD_CONTEXT_QUEUE_OFFSET(qid), 0);
+            sc->scd_base_addr + IWM_SCD_CONTEXT_QUEUE_OFFSET(qid), 0);
 
         /* Set scheduler window size and frame limit. */
         iwm_write_mem32(sc,
-            sc->sched_base + IWM_SCD_CONTEXT_QUEUE_OFFSET(qid) +
+            sc->scd_base_addr + IWM_SCD_CONTEXT_QUEUE_OFFSET(qid) +
             sizeof(uint32_t),
             ((IWM_FRAME_LIMIT << IWM_SCD_QUEUE_CTX_REG2_WIN_SIZE_POS) &
             IWM_SCD_QUEUE_CTX_REG2_WIN_SIZE_MSK) |
@@ -199,13 +199,13 @@ iwm_send_update_mcc_cmd(struct iwm_softc *sc, const char *alpha2)
         .data = { &mcc_cmd },
     };
     int err;
-    int resp_v2 = isset(sc->sc_enabled_capa,
+    int resp_v2 = isset(sc->sc_fw.ucode_capa.enabled_capa,
         IWM_UCODE_TLV_CAPA_LAR_SUPPORT_V2);
 
     memset(&mcc_cmd, 0, sizeof(mcc_cmd));
     mcc_cmd.mcc = htole16(alpha2[0] << 8 | alpha2[1]);
     if ((sc->sc_ucode_api & IWM_UCODE_TLV_API_WIFI_MCC_UPDATE) ||
-        isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_LAR_MULTI_MCC))
+        isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_LAR_MULTI_MCC))
         mcc_cmd.source_id = IWM_MCC_SOURCE_GET_CURRENT;
     else
         mcc_cmd.source_id = IWM_MCC_SOURCE_OLD_FW;

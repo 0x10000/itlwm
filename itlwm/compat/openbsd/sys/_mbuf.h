@@ -16,6 +16,7 @@
 #define IPL_NET        6
 
 #define    mtod(x,t)    ((t) mbuf_data(x))
+#define    mtodoff(x, t, o) ((t)((u8*)mbuf_data(m) + o))
 #define    ml_len(_ml)        ((_ml)->ml_len)
 #define    ml_empty(_ml)        ((_ml)->ml_len == 0)
 

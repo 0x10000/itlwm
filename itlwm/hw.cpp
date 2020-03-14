@@ -393,11 +393,11 @@ iwm_nic_config(struct iwm_softc *sc)
     uint8_t radio_cfg_type, radio_cfg_step, radio_cfg_dash;
     uint32_t reg_val = 0;
 
-    radio_cfg_type = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_TYPE) >>
+    radio_cfg_type = (sc->sc_fw.phy_config & IWM_FW_PHY_CFG_RADIO_TYPE) >>
         IWM_FW_PHY_CFG_RADIO_TYPE_POS;
-    radio_cfg_step = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_STEP) >>
+    radio_cfg_step = (sc->sc_fw.phy_config & IWM_FW_PHY_CFG_RADIO_STEP) >>
         IWM_FW_PHY_CFG_RADIO_STEP_POS;
-    radio_cfg_dash = (sc->sc_fw_phy_config & IWM_FW_PHY_CFG_RADIO_DASH) >>
+    radio_cfg_dash = (sc->sc_fw.phy_config & IWM_FW_PHY_CFG_RADIO_DASH) >>
         IWM_FW_PHY_CFG_RADIO_DASH_POS;
 
     reg_val |= IWM_CSR_HW_REV_STEP(sc->sc_hw_rev) <<
@@ -441,7 +441,7 @@ iwm_nic_rx_init(struct iwm_softc *sc)
 
     /* Set physical address of RX ring (256-byte aligned). */
     IWM_WRITE(sc,
-        IWM_FH_RSCSR_CHNL0_RBDCB_BASE_REG, sc->rxq.desc_dma.paddr >> 8);
+        IWM_FH_RSCSR_CHNL0_RBDCB_BASE_REG, sc->rxq.free_desc_dma.paddr >> 8);
 
     /* Set physical address of RX status (16-byte aligned). */
     IWM_WRITE(sc,

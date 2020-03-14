@@ -35,7 +35,7 @@ iwm_scan_rate_n_flags(struct iwm_softc *sc, int flags, int no_cck)
     for (i = 0, ind = sc->sc_scan_last_antenna;
         i < IWM_RATE_MCS_ANT_NUM; i++) {
         ind = (ind + 1) % IWM_RATE_MCS_ANT_NUM;
-        if (iwm_fw_valid_tx_ant(sc) & (1 << ind)) {
+        if (iwm_get_valid_tx_ant(sc) & (1 << ind)) {
             sc->sc_scan_last_antenna = ind;
             break;
         }
@@ -59,7 +59,7 @@ iwm_lmac_scan_fill_channels(struct iwm_softc *sc,
 
     for (nchan = 0, c = &ic->ic_channels[1];
         c <= &ic->ic_channels[IEEE80211_CHAN_MAX] &&
-        nchan < sc->sc_capa_n_scan_channels;
+        nchan < sc->sc_fw.ucode_capa.n_scan_channels;
         c++) {
         if (c->ic_flags == 0)
             continue;
@@ -87,7 +87,7 @@ iwm_umac_scan_fill_channels(struct iwm_softc *sc,
 
     for (nchan = 0, c = &ic->ic_channels[1];
         c <= &ic->ic_channels[IEEE80211_CHAN_MAX] &&
-        nchan < sc->sc_capa_n_scan_channels;
+        nchan < sc->sc_fw.ucode_capa.n_scan_channels;
         c++) {
         if (c->ic_flags == 0)
             continue;
@@ -156,7 +156,7 @@ iwm_fill_probe_req(struct iwm_softc *sc, struct iwm_scan_probe_req *preq)
     preq->band_data[0].len = htole16(frm - pos);
     remain -= frm - pos;
 
-    if (isset(sc->sc_enabled_capa,
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa,
         IWM_UCODE_TLV_CAPA_DS_PARAM_SET_IE_SUPPORT)) {
         if (remain < 3)
             return ENOBUFS;
@@ -166,7 +166,7 @@ iwm_fill_probe_req(struct iwm_softc *sc, struct iwm_scan_probe_req *preq)
         remain -= 3;
     }
 
-    if (sc->sc_nvm.sku_cap_band_52GHz_enable) {
+    if (sc->nvm_data->sku_cap_band_52GHz_enable) {
         /* Fill in 5GHz IEs. */
         rs = &ic->ic_sup_rates[IEEE80211_MODE_11A];
         if (rs->rs_nrates > IEEE80211_RATE_SIZE) {
@@ -213,7 +213,7 @@ iwm_lmac_scan(struct iwm_softc *sc, int bgscan)
 
     req_len = sizeof(struct iwm_scan_req_lmac) +
         (sizeof(struct iwm_scan_channel_cfg_lmac) *
-        sc->sc_capa_n_scan_channels) + sizeof(struct iwm_scan_probe_req);
+        sc->sc_fw.ucode_capa.n_scan_channels) + sizeof(struct iwm_scan_probe_req);
     if (req_len > IWM_MAX_CMD_PAYLOAD_SIZE)
         return ENOMEM;
     req = (struct iwm_scan_req_lmac*)malloc(req_len, M_DEVBUF, M_NOWAIT);
@@ -250,12 +250,12 @@ iwm_lmac_scan(struct iwm_softc *sc, int bgscan)
     else
         req->scan_flags |=
             htole32(IWM_LMAC_SCAN_FLAG_PRE_CONNECTION);
-    if (isset(sc->sc_enabled_capa,
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa,
         IWM_UCODE_TLV_CAPA_DS_PARAM_SET_IE_SUPPORT))
         req->scan_flags |= htole32(IWM_LMAC_SCAN_FLAGS_RRM_ENABLED);
 
     req->flags = htole32(IWM_PHY_BAND_24);
-    if (sc->sc_nvm.sku_cap_band_52GHz_enable)
+    if (sc->nvm_data->sku_cap_band_52GHz_enable)
         req->flags |= htole32(IWM_PHY_BAND_5);
     req->filter_flags =
         htole32(IWM_MAC_FILTER_ACCEPT_GRP | IWM_MAC_FILTER_IN_BEACON);
@@ -289,7 +289,7 @@ iwm_lmac_scan(struct iwm_softc *sc, int bgscan)
     err = iwm_fill_probe_req(sc,
                 (struct iwm_scan_probe_req *)(req->data +
                 (sizeof(struct iwm_scan_channel_cfg_lmac) *
-                sc->sc_capa_n_scan_channels)));
+                sc->sc_fw.ucode_capa.n_scan_channels)));
     if (err) {
         free(req);
         return err;
@@ -329,14 +329,14 @@ iwm_config_umac_scan(struct iwm_softc *sc)
         IWM_SCAN_CONFIG_RATE_36M | IWM_SCAN_CONFIG_RATE_48M |
         IWM_SCAN_CONFIG_RATE_54M);
 
-    cmd_size = sizeof(*scan_config) + sc->sc_capa_n_scan_channels;
+    cmd_size = sizeof(*scan_config) + sc->sc_fw.ucode_capa.n_scan_channels;
 
     scan_config = (struct iwm_scan_config*)malloc(cmd_size, M_DEVBUF, M_WAIT);
     if (scan_config == NULL)
         return ENOMEM;
     bzero(scan_config, cmd_size);
 
-    scan_config->tx_chains = htole32(iwm_fw_valid_tx_ant(sc));
+    scan_config->tx_chains = htole32(iwm_get_valid_tx_ant(sc));
     scan_config->rx_chains = htole32(iwm_fw_valid_rx_ant(sc));
     scan_config->legacy_rates = htole32(rates |
         IWM_SCAN_CONFIG_SUPPORTED_RATE(rates));
@@ -358,7 +358,7 @@ iwm_config_umac_scan(struct iwm_softc *sc)
 
     for (c = &ic->ic_channels[1], nchan = 0;
         c <= &ic->ic_channels[IEEE80211_CHAN_MAX] &&
-        nchan < sc->sc_capa_n_scan_channels; c++) {
+        nchan < sc->sc_fw.ucode_capa.n_scan_channels; c++) {
         if (c->ic_flags == 0)
             continue;
         scan_config->channel_array[nchan++] =
@@ -402,7 +402,7 @@ iwm_umac_scan(struct iwm_softc *sc, int bgscan)
 
     req_len = sizeof(struct iwm_scan_req_umac) +
         (sizeof(struct iwm_scan_channel_cfg_umac) *
-        sc->sc_capa_n_scan_channels) +
+        sc->sc_fw.ucode_capa.n_scan_channels) +
         sizeof(struct iwm_scan_req_umac_tail);
     if (req_len > IWM_MAX_CMD_PAYLOAD_SIZE)
         return ENOMEM;
@@ -441,7 +441,7 @@ iwm_umac_scan(struct iwm_softc *sc, int bgscan)
 
     tail = (struct iwm_scan_req_umac_tail *)&req->data +
         sizeof(struct iwm_scan_channel_cfg_umac) *
-            sc->sc_capa_n_scan_channels;
+            sc->sc_fw.ucode_capa.n_scan_channels;
 
     /* Check if we're doing an active directed scan. */
     if (ic->ic_des_esslen != 0) {
@@ -454,7 +454,7 @@ iwm_umac_scan(struct iwm_softc *sc, int bgscan)
     } else
         req->general_flags |= htole32(IWM_UMAC_SCAN_GEN_FLAGS_PASSIVE);
 
-    if (isset(sc->sc_enabled_capa,
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa,
         IWM_UCODE_TLV_CAPA_DS_PARAM_SET_IE_SUPPORT))
         req->general_flags |=
             htole32(IWM_UMAC_SCAN_GEN_FLAGS_RRM_ENABLED);
@@ -607,7 +607,7 @@ iwm_scan(struct iwm_softc *sc)
         }
     }
 
-    if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
         err = iwm_umac_scan(sc, 0);
     else
         err = iwm_lmac_scan(sc, 0);
@@ -649,7 +649,7 @@ iwm_bgscan(struct ieee80211com *ic)
     if (sc->sc_flags & IWM_FLAG_SCANNING)
         return 0;
 
-    if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
         err = that->iwm_umac_scan(sc, 1);
     else
         err = that->iwm_lmac_scan(sc, 1);
@@ -703,7 +703,7 @@ iwm_scan_abort(struct iwm_softc *sc)
 {
     int err;
 
-    if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN))
         err = iwm_umac_scan_abort(sc);
     else
         err = iwm_lmac_scan_abort(sc);

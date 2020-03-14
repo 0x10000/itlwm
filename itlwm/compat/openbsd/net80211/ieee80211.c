@@ -61,8 +61,8 @@
 int	ieee80211_debug = 2;
 #endif
 
-int TX_TYPE_MGMT = 1;
-int TX_TYPE_FRAME = 2;
+int ticks = 5;
+int hz = 1000;
 
 ///compat for undefined symbols
 int _stop(struct kmod_info*, void*) {

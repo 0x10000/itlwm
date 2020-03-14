@@ -103,7 +103,7 @@ iwm_power_update_device(struct iwm_softc *sc)
         .flags = htole16(IWM_DEVICE_POWER_FLAGS_POWER_SAVE_ENA_MSK),
     };
 
-    if (!(sc->sc_capaflags & IWM_UCODE_TLV_FLAGS_DEVICE_PS_CMD))
+    if (!(sc->sc_fw.ucode_capa.flags & IWM_UCODE_TLV_FLAGS_DEVICE_PS_CMD))
         return 0;
 
     return iwm_send_cmd_pdu(sc,
@@ -136,7 +136,7 @@ iwm_disable_beacon_filter(struct iwm_softc *sc)
     int err;
 
     memset(&cmd, 0, sizeof(cmd));
-    if ((sc->sc_capaflags & IWM_UCODE_TLV_FLAGS_BF_UPDATED) == 0)
+    if ((sc->sc_fw.ucode_capa.flags & IWM_UCODE_TLV_FLAGS_BF_UPDATED) == 0)
         return 0;
 
     err = iwm_beacon_filter_send_cmd(sc, &cmd);

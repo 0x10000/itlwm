@@ -80,7 +80,7 @@ public:
     static void free(void *addr, int type, vm_size_t len);
     
     //fw
-    uint8_t iwm_fw_valid_tx_ant(struct iwm_softc *sc);
+    uint8_t iwm_get_valid_tx_ant(struct iwm_softc *sc);
     uint8_t iwm_fw_valid_rx_ant(struct iwm_softc *sc);
     static void onLoadFW(OSKextRequestTag requestTag, OSReturn result, const void *resourceData, uint32_t resourceDataLength, void *context);
     
@@ -196,7 +196,7 @@ public:
     int    iwm_firmware_load_chunk(struct iwm_softc *, uint32_t, const uint8_t *,
             uint32_t);
     int    iwm_load_firmware_7000(struct iwm_softc *, enum iwm_ucode_type);
-    int    iwm_load_cpu_sections_8000(struct iwm_softc *, struct iwm_fw_sects *,
+    int    iwm_load_cpu_sections_8000(struct iwm_softc *, struct iwm_fw_img *,
             int , int *);
     int    iwm_load_firmware_8000(struct iwm_softc *, enum iwm_ucode_type);
     int    iwm_load_firmware(struct iwm_softc *, enum iwm_ucode_type);

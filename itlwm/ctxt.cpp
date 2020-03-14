@@ -48,7 +48,7 @@ iwm_phy_ctxt_cmd_data(struct iwm_softc *sc, struct iwm_phy_context_cmd *cmd,
     cmd->rxchain_info |= htole32(active_cnt <<
         IWM_PHY_RX_CHAIN_MIMO_CNT_POS);
 
-    cmd->txchain_info = htole32(iwm_fw_valid_tx_ant(sc));
+    cmd->txchain_info = htole32(iwm_get_valid_tx_ant(sc));
 }
 
 int itlwm::

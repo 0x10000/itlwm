@@ -71,10 +71,6 @@
 
 #define    ALIGNED_POINTER(p,t)    1
 
-extern int TX_TYPE_MGMT;
-
-extern int TX_TYPE_FRAME;
-
 extern int _stop(struct kmod_info*, void*);
 
 extern int _start(struct kmod_info*, void*);
@@ -87,6 +83,9 @@ static inline void* _MallocZero(vm_size_t size)
     bzero(ret, size);
     return ret;
 }
+
+extern int ticks;
+extern int hz;
 
 /*
  * ppsratecheck(): packets (or events) per second limitation.

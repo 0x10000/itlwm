@@ -66,13 +66,21 @@ public:
     static void free(void *addr, int type, vm_size_t len);
     
     //fw
-    uint8_t iwm_fw_valid_tx_ant(struct iwm_softc *sc);
+    uint8_t iwm_get_valid_tx_ant(struct iwm_softc *sc);
     uint8_t iwm_fw_valid_rx_ant(struct iwm_softc *sc);
     static void onLoadFW(OSKextRequestTag requestTag, OSReturn result, const void *resourceData, uint32_t resourceDataLength, void *context);
-    
+    int    iwm_trans_pcie_fw_alive(struct iwm_softc *, uint32_t);
+    void iwm_free_fw_paging(struct iwm_softc *);
+    int iwm_fill_paging_mem(struct iwm_softc *sc, const struct iwm_fw_img *image);
+    int iwm_save_fw_paging(struct iwm_softc *, const struct iwm_fw_img *);
+    int iwm_send_paging_cmd(struct iwm_softc *, const struct iwm_fw_img *);
+    int iwm_alloc_fw_paging_mem(struct iwm_softc *sc, const struct iwm_fw_img *image);
     //scan
     uint8_t iwm_umac_scan_fill_channels(struct iwm_softc *sc,
                                         struct iwm_scan_channel_cfg_umac *chan, int n_ssids, int bgscan);
+    
+    //rx
+    void    iwm_handle_rxb(struct iwm_softc *, mbuf_t);
     
     int    iwm_is_mimo_ht_plcp(uint8_t);
     int    iwm_is_mimo_mcs(int);
@@ -125,20 +133,25 @@ public:
     int    iwm_nic_init(struct iwm_softc *);
     int    iwm_enable_txq(struct iwm_softc *, int, int, int);
     int    iwm_post_alive(struct iwm_softc *);
-    struct iwm_phy_db_entry *iwm_phy_db_get_section(struct iwm_softc *, uint16_t,
+    struct iwm_phy_db_entry *iwm_phy_db_get_section(struct iwm_phy_db *phy_db, enum iwm_phy_db_section_type,
             uint16_t);
-    int    iwm_phy_db_set_section(struct iwm_softc *,
-            struct iwm_calib_res_notif_phy_db *);
     int    iwm_is_valid_channel(uint16_t);
     uint8_t    iwm_ch_id_to_ch_index(uint16_t);
     uint16_t iwm_channel_id_to_papd(uint16_t);
-    uint16_t iwm_channel_id_to_txp(struct iwm_softc *, uint16_t);
-    int    iwm_phy_db_get_section_data(struct iwm_softc *, uint32_t, uint8_t **,
-            uint16_t *, uint16_t);
-    int    iwm_send_phy_db_cmd(struct iwm_softc *, uint16_t, uint16_t, void *);
-    int    iwm_phy_db_send_all_channel_groups(struct iwm_softc *, uint16_t,
-            uint8_t);
-    int    iwm_send_phy_db_data(struct iwm_softc *);
+    uint16_t iwm_channel_id_to_txp(struct iwm_phy_db *, uint16_t);
+    int    iwm_phy_db_get_section_data(struct iwm_phy_db *phy_db,
+    uint32_t type, uint8_t **data, uint16_t *size,
+                                       uint16_t ch_id);
+    int    iwm_send_phy_db_cmd(struct iwm_phy_db *phy_db, uint16_t type,
+    uint16_t length, void *data);
+    int    iwm_phy_db_send_all_channel_groups(struct iwm_phy_db *phy_db,
+    enum iwm_phy_db_section_type type,
+    uint8_t max_ch_groups);
+    struct iwm_phy_db *iwm_phy_db_init(struct iwm_softc *sc);
+    void iwm_phy_db_free(struct iwm_phy_db *phy_db);
+    int iwm_phy_db_set_section(struct iwm_phy_db *phy_db,
+                               struct iwm_rx_packet *pkt);
+    int iwm_send_phy_db_data(struct iwm_phy_db *phy_db);
     void    iwm_te_v2_to_v1(const struct iwm_time_event_cmd_v2 *,
             struct iwm_time_event_cmd_v1 *);
     int    iwm_send_time_event_cmd(struct iwm_softc *,
@@ -177,16 +190,20 @@ public:
             const uint16_t *, const uint16_t *);
     int    iwm_parse_nvm_sections(struct iwm_softc *, struct iwm_nvm_section *);
     int    iwm_nvm_init(struct iwm_softc *);
-    int    iwm_firmware_load_sect(struct iwm_softc *, uint32_t, const uint8_t *,
-            uint32_t);
-    int    iwm_firmware_load_chunk(struct iwm_softc *, uint32_t, const uint8_t *,
-            uint32_t);
-    int    iwm_load_firmware_7000(struct iwm_softc *, enum iwm_ucode_type);
-    int    iwm_load_cpu_sections_8000(struct iwm_softc *, struct iwm_fw_sects *,
-            int , int *);
-    int    iwm_load_firmware_8000(struct iwm_softc *, enum iwm_ucode_type);
-    int    iwm_load_firmware(struct iwm_softc *, enum iwm_ucode_type);
-    int    iwm_start_fw(struct iwm_softc *, enum iwm_ucode_type);
+    int    iwm_pcie_load_section(struct iwm_softc *, uint8_t,
+                          const struct iwm_fw_desc *);
+    int    iwm_pcie_load_firmware_chunk(struct iwm_softc *, uint32_t,
+                             bus_addr_t, uint32_t);
+    int    iwm_pcie_load_cpu_sections_8000(struct iwm_softc *sc,
+                            const struct iwm_fw_img *,
+                            int, int *);
+    int    iwm_pcie_load_cpu_sections(struct iwm_softc *,
+                           const struct iwm_fw_img *,
+                           int, int *);
+    int    iwm_pcie_load_given_ucode_8000(struct iwm_softc *, const struct iwm_fw_img *);
+    int    iwm_pcie_load_given_ucode(struct iwm_softc *,
+                                     const struct iwm_fw_img *);
+    int    iwm_start_fw(struct iwm_softc *, const struct iwm_fw_img *);
     int    iwm_send_tx_ant_cfg(struct iwm_softc *, uint8_t);
     int    iwm_send_phy_cfg_cmd(struct iwm_softc *);
     int    iwm_load_ucode_wait_alive(struct iwm_softc *, enum iwm_ucode_type);
@@ -194,8 +211,7 @@ public:
     int    iwm_rx_addbuf(struct iwm_softc *, int, int);
     int    iwm_calc_rssi(struct iwm_softc *, struct iwm_rx_phy_info *);
     int    iwm_get_signal_strength(struct iwm_softc *, struct iwm_rx_phy_info *);
-    void    iwm_rx_rx_phy_cmd(struct iwm_softc *, struct iwm_rx_packet *,
-            struct iwm_rx_data *);
+    void    iwm_rx_rx_phy_cmd(struct iwm_softc *, struct iwm_rx_packet *);
     int    iwm_get_noise(const struct iwm_statistics_rx_non_phy *);
     void    iwm_rx_rx_mpdu(struct iwm_softc *, struct iwm_rx_packet *,
             struct iwm_rx_data *, struct mbuf_list *);
@@ -312,7 +328,7 @@ public:
     
     
     
-private:
+public:
     IOInterruptEventSource* fInterrupt;
     IOWorkLoop *fWorkloop;
     IOCommandGate*        fCommandGate;

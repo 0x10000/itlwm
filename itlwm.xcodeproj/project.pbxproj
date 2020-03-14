@@ -76,7 +76,19 @@
 		0250B32423FD76DF00FF8CEA /* iwlwifi-7260-16.ucode in Resources */ = {isa = PBXBuildFile; fileRef = 0250B32323FD76DF00FF8CEA /* iwlwifi-7260-16.ucode */; };
 		0250B32623FD76F900FF8CEA /* iwlwifi-8000C-34.ucode in Resources */ = {isa = PBXBuildFile; fileRef = 0250B32523FD76F900FF8CEA /* iwlwifi-8000C-34.ucode */; };
 		0250B32823FD770900FF8CEA /* iwlwifi-8265-34.ucode in Resources */ = {isa = PBXBuildFile; fileRef = 0250B32723FD770900FF8CEA /* iwlwifi-8265-34.ucode */; };
+		F84AC839241BB02D00C4B8A4 /* devices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F84AC837241BB02D00C4B8A4 /* devices.cpp */; };
+		F84AC83A241BB02D00C4B8A4 /* devices.hpp in Headers */ = {isa = PBXBuildFile; fileRef = F84AC838241BB02D00C4B8A4 /* devices.hpp */; };
+		F84AC83C241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC83B241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode */; };
+		F84AC83D241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC83B241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode */; };
+		F84AC83F241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC83E241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode */; };
+		F84AC840241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC83E241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode */; };
+		F84AC842241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC841241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode */; };
+		F84AC843241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode in Resources */ = {isa = PBXBuildFile; fileRef = F84AC841241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode */; };
 		F88D2B3D2414E64000BBE700 /* sha1-pbkdf2.c in Sources */ = {isa = PBXBuildFile; fileRef = F88D2B3B2414E64000BBE700 /* sha1-pbkdf2.c */; };
+		F8C01BE9241C7239002BB524 /* if_iwm_notif_wait.h in Headers */ = {isa = PBXBuildFile; fileRef = F8C01BE8241C7239002BB524 /* if_iwm_notif_wait.h */; };
+		F8C01BEB241C7242002BB524 /* if_iwm_notif_wait.c in Sources */ = {isa = PBXBuildFile; fileRef = F8C01BEA241C7242002BB524 /* if_iwm_notif_wait.c */; };
+		F8C01BEE241C7456002BB524 /* _mutex.h in Headers */ = {isa = PBXBuildFile; fileRef = F8C01BEC241C7456002BB524 /* _mutex.h */; };
+		F8C01BEF241C7456002BB524 /* _mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F8C01BED241C7456002BB524 /* _mutex.cpp */; };
 		F8C2EC4F2408031A007A9422 /* ieee80211_proto.c in Sources */ = {isa = PBXBuildFile; fileRef = F8C2EC2F24080319007A9422 /* ieee80211_proto.c */; };
 		F8C2EC502408031A007A9422 /* _string.c in Sources */ = {isa = PBXBuildFile; fileRef = F8C2EC3024080319007A9422 /* _string.c */; };
 		F8C2EC512408031A007A9422 /* ieee80211_amrr.h in Headers */ = {isa = PBXBuildFile; fileRef = F8C2EC3124080319007A9422 /* ieee80211_amrr.h */; };
@@ -279,8 +291,17 @@
 		0250B32323FD76DF00FF8CEA /* iwlwifi-7260-16.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-7260-16.ucode"; sourceTree = "<group>"; };
 		0250B32523FD76F900FF8CEA /* iwlwifi-8000C-34.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-8000C-34.ucode"; sourceTree = "<group>"; };
 		0250B32723FD770900FF8CEA /* iwlwifi-8265-34.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-8265-34.ucode"; sourceTree = "<group>"; };
+		F84AC837241BB02D00C4B8A4 /* devices.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = devices.cpp; sourceTree = "<group>"; };
+		F84AC838241BB02D00C4B8A4 /* devices.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = devices.hpp; sourceTree = "<group>"; };
+		F84AC83B241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-7265D-27.ucode"; sourceTree = "<group>"; };
+		F84AC83E241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-9000-pu-b0-jf-b0-43.ucode"; sourceTree = "<group>"; };
+		F84AC841241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iwlwifi-9260-th-b0-jf-b0-33.ucode"; sourceTree = "<group>"; };
 		F88D2B3B2414E64000BBE700 /* sha1-pbkdf2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sha1-pbkdf2.c"; sourceTree = "<group>"; };
 		F8B783AF240B9F87004C9777 /* _ifq.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _ifq.h; sourceTree = "<group>"; };
+		F8C01BE8241C7239002BB524 /* if_iwm_notif_wait.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = if_iwm_notif_wait.h; sourceTree = "<group>"; };
+		F8C01BEA241C7242002BB524 /* if_iwm_notif_wait.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = if_iwm_notif_wait.c; sourceTree = "<group>"; };
+		F8C01BEC241C7456002BB524 /* _mutex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _mutex.h; sourceTree = "<group>"; };
+		F8C01BED241C7456002BB524 /* _mutex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = _mutex.cpp; sourceTree = "<group>"; };
 		F8C2EC2F24080319007A9422 /* ieee80211_proto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ieee80211_proto.c; sourceTree = "<group>"; };
 		F8C2EC3024080319007A9422 /* _string.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = _string.c; sourceTree = "<group>"; };
 		F8C2EC3124080319007A9422 /* ieee80211_amrr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ieee80211_amrr.h; sourceTree = "<group>"; };
@@ -417,6 +438,10 @@
 				024A08D323FCF3E6009FBA6C /* power.cpp */,
 				024A08D523FCF4D7009FBA6C /* scan.cpp */,
 				F8EE4D1A241786B0002FA666 /* FwData.h */,
+				F84AC837241BB02D00C4B8A4 /* devices.cpp */,
+				F84AC838241BB02D00C4B8A4 /* devices.hpp */,
+				F8C01BE8241C7239002BB524 /* if_iwm_notif_wait.h */,
+				F8C01BEA241C7242002BB524 /* if_iwm_notif_wait.c */,
 			);
 			path = itlwm;
 			sourceTree = "<group>";
@@ -504,6 +529,9 @@
 				0250B32123FD76D200FF8CEA /* iwlwifi-7265-16.ucode */,
 				0250B31D23FD76A200FF8CEA /* iwlwifi-3160-16.ucode */,
 				0250B31F23FD76BA00FF8CEA /* iwlwifi-3168-27.ucode */,
+				F84AC83B241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode */,
+				F84AC83E241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode */,
+				F84AC841241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode */,
 			);
 			path = firmware;
 			sourceTree = "<group>";
@@ -550,6 +578,8 @@
 		F8C2EC8624080556007A9422 /* sys */ = {
 			isa = PBXGroup;
 			children = (
+				F8C01BED241C7456002BB524 /* _mutex.cpp */,
+				F8C01BEC241C7456002BB524 /* _mutex.h */,
 				F8C2EC9B2408062D007A9422 /* pcireg.h */,
 				F8C2EC8724080556007A9422 /* _buf.h */,
 				F8C2EC8824080556007A9422 /* CTimeout.hpp */,
@@ -645,6 +675,7 @@
 				F8F92586240974EF0088B8D5 /* types.h in Headers */,
 				024A083523FCBC6C009FBA6C /* des_locl.h in Headers */,
 				024A088B23FCBE38009FBA6C /* if_iwmreg.h in Headers */,
+				F8C01BE9241C7239002BB524 /* if_iwm_notif_wait.h in Headers */,
 				024A084A23FCBC6C009FBA6C /* cryptodev.h in Headers */,
 				024A083E23FCBC6C009FBA6C /* sk.h in Headers */,
 				F8F9257D240974EF0088B8D5 /* cfg80211.h in Headers */,
@@ -666,6 +697,7 @@
 				F8C2EC9524080557007A9422 /* _mbuf.h in Headers */,
 				024A084423FCBC6C009FBA6C /* sha2.h in Headers */,
 				024A088C23FCBE38009FBA6C /* if_iwmvar.h in Headers */,
+				F8C01BEE241C7456002BB524 /* _mutex.h in Headers */,
 				024A083A23FCBC6C009FBA6C /* blf.h in Headers */,
 				F8C2EC9224080557007A9422 /* CTimeout.hpp in Headers */,
 				F8C2EC612408031A007A9422 /* ieee80211_proto.h in Headers */,
@@ -679,6 +711,7 @@
 				F8C2EC632408031A007A9422 /* ieee80211.h in Headers */,
 				024A085623FCBC6C009FBA6C /* cmac.h in Headers */,
 				F8F9257E240974EF0088B8D5 /* bitfield.h in Headers */,
+				F84AC83A241BB02D00C4B8A4 /* devices.hpp in Headers */,
 				F8C2EC642408031A007A9422 /* ieee80211_priv.h in Headers */,
 				024A07B023FCBC3C009FBA6C /* itlwm.hpp in Headers */,
 				F8C2EC5A2408031A007A9422 /* ieee80211_crypto.h in Headers */,
@@ -816,9 +849,12 @@
 				0250B32823FD770900FF8CEA /* iwlwifi-8265-34.ucode in Resources */,
 				0250B32623FD76F900FF8CEA /* iwlwifi-8000C-34.ucode in Resources */,
 				0250B31E23FD76A200FF8CEA /* iwlwifi-3160-16.ucode in Resources */,
+				F84AC83F241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode in Resources */,
 				0250B32023FD76BA00FF8CEA /* iwlwifi-3168-27.ucode in Resources */,
 				0250B32423FD76DF00FF8CEA /* iwlwifi-7260-16.ucode in Resources */,
+				F84AC842241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode in Resources */,
 				0250B32223FD76D200FF8CEA /* iwlwifi-7265-16.ucode in Resources */,
+				F84AC83C241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,9 +865,12 @@
 				F8E5806D24167ECF00443530 /* iwlwifi-8265-34.ucode in Resources */,
 				F8E5806E24167ECF00443530 /* iwlwifi-8000C-34.ucode in Resources */,
 				F8E5806F24167ECF00443530 /* iwlwifi-7260-16.ucode in Resources */,
+				F84AC840241BDF8E00C4B8A4 /* iwlwifi-9000-pu-b0-jf-b0-43.ucode in Resources */,
 				F8E5807024167ECF00443530 /* iwlwifi-7265-16.ucode in Resources */,
 				F8E5807124167ECF00443530 /* iwlwifi-3160-16.ucode in Resources */,
+				F84AC843241BDFA300C4B8A4 /* iwlwifi-9260-th-b0-jf-b0-33.ucode in Resources */,
 				F8E5807224167ECF00443530 /* iwlwifi-3168-27.ucode in Resources */,
+				F84AC83D241BDF6F00C4B8A4 /* iwlwifi-7265D-27.ucode in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -862,6 +901,7 @@
 				024A083423FCBC6C009FBA6C /* cast.c in Sources */,
 				024A08CA23FCE537009FBA6C /* phy.cpp in Sources */,
 				F8C2EC502408031A007A9422 /* _string.c in Sources */,
+				F8C01BEB241C7242002BB524 /* if_iwm_notif_wait.c in Sources */,
 				024A082E23FCBC6C009FBA6C /* aes.c in Sources */,
 				F8C2EC4F2408031A007A9422 /* ieee80211_proto.c in Sources */,
 				024A07B223FCBC3C009FBA6C /* itlwm.cpp in Sources */,
@@ -894,9 +934,11 @@
 				024A08D223FCF395009FBA6C /* led.cpp in Sources */,
 				F8C2EC542408031A007A9422 /* ieee80211_rssadapt.c in Sources */,
 				024A08C223FCD999009FBA6C /* io.cpp in Sources */,
+				F8C01BEF241C7456002BB524 /* _mutex.cpp in Sources */,
 				024A083323FCBC6C009FBA6C /* set_key.c in Sources */,
 				024A08C423FCDC14009FBA6C /* rx.cpp in Sources */,
 				F8C2EC5C2408031A007A9422 /* ieee80211_crypto_tkip.c in Sources */,
+				F84AC839241BB02D00C4B8A4 /* devices.cpp in Sources */,
 				024A085123FCBC6C009FBA6C /* blf.c in Sources */,
 				024A082223FCBC6C009FBA6C /* compat.cpp in Sources */,
 			);

@@ -148,5 +148,4 @@ void		bus_dmamem_free(bus_dma_tag_t tag, bus_dma_segment_t *segs, int nsegs);
 void		bus_dmamap_destroy(bus_dma_tag_t tag, bus_dmamap_t dmam);
 int		bus_dmamap_load(bus_dmamap_t map, mbuf_t m);
 #define bus_dmamap_load_mbuf bus_dmamap_load
-
 #endif

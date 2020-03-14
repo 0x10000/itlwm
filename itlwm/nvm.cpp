@@ -138,7 +138,7 @@ iwm_parse_nvm_data(struct iwm_softc *sc, const uint16_t *nvm_hw,
     const uint16_t *mac_override, const uint16_t *phy_sku,
     const uint16_t *regulatory)
 {
-    struct iwm_nvm_data *data = &sc->sc_nvm;
+    struct iwm_nvm_data *data = sc->nvm_data;
     uint8_t hw_addr[ETHER_ADDR_LEN];
     uint32_t sku;
 

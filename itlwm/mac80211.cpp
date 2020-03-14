@@ -12,6 +12,7 @@
 #include "OpenWifi.hpp"
 #endif
 #include <net/ethernet.h>
+#include "kernel.h"
 
 int itlwm::
 iwm_is_valid_channel(uint16_t ch_id)
@@ -56,23 +57,21 @@ iwm_channel_id_to_papd(uint16_t ch_id)
 }
 
 uint16_t itlwm::
-iwm_channel_id_to_txp(struct iwm_softc *sc, uint16_t ch_id)
+iwm_channel_id_to_txp(struct iwm_phy_db *phy_db, uint16_t ch_id)
 {
-    struct iwm_phy_db *phy_db = &sc->sc_phy_db;
     struct iwm_phy_db_chg_txp *txp_chg;
     int i;
     uint8_t ch_index = iwm_ch_id_to_ch_index(ch_id);
-    
     if (ch_index == 0xff)
         return 0xff;
-    
-    for (i = 0; i < IWM_NUM_TXP_CH_GROUPS; i++) {
+
+    for (i = 0; i < phy_db->n_group_txp; i++) {
         txp_chg = (struct iwm_phy_db_chg_txp *)phy_db->calib_ch_group_txp[i].data;
         if (!txp_chg)
             return 0xff;
         /*
-         * Looking for the first channel group the max channel
-         * of which is higher than the requested channel.
+         * Looking for the first channel group that its max channel is
+         * higher then wanted channel.
          */
         if (le16toh(txp_chg->max_channel_idx) >= ch_index)
             return i;
@@ -85,7 +84,7 @@ iwm_init_channel_map(struct iwm_softc *sc, const uint16_t * const nvm_ch_flags,
                      const uint8_t *nvm_channels, size_t nchan)
 {
     struct ieee80211com *ic = &sc->sc_ic;
-    struct iwm_nvm_data *data = &sc->sc_nvm;
+    struct iwm_nvm_data *data = sc->nvm_data;
     int ch_idx;
     struct ieee80211_channel *channel;
     uint16_t ch_flags;
@@ -139,7 +138,7 @@ iwm_setup_ht_rates(struct iwm_softc *sc)
     
     ic->ic_sup_mcs[0] = 0xff;        /* MCS 0-7 */
     
-    if (sc->sc_nvm.sku_cap_mimo_disable)
+    if (sc->nvm_data->sku_cap_mimo_disable)
         return;
     
     rx_ant = iwm_fw_valid_rx_ant(sc);
@@ -388,7 +387,7 @@ iwm_rx_rx_mpdu(struct iwm_softc *sc, struct iwm_rx_packet *pkt,
     
     device_timestamp = le32toh(phy_info->system_timestamp);
     
-    if (sc->sc_capaflags & IWM_UCODE_TLV_FLAGS_RX_ENERGY_API) {
+    if (sc->sc_fw.ucode_capa.flags & IWM_UCODE_TLV_FLAGS_RX_ENERGY_API) {
         rssi = iwm_get_signal_strength(sc, phy_info);
         XYLog("%s %d rssi=%d\n", __func__, __LINE__, rssi);
     } else {
@@ -1311,7 +1310,7 @@ iwm_run(struct iwm_softc *sc)
     
     /* Configure Rx chains for MIMO. */
     if ((in->in_ni.ni_flags & IEEE80211_NODE_HT) &&
-        !sc->sc_nvm.sku_cap_mimo_disable) {
+        !sc->nvm_data->sku_cap_mimo_disable) {
         err = iwm_phy_ctxt_cmd(sc, &sc->sc_phyctxt[0],
                                2, 2, IWM_FW_CTXT_ACTION_MODIFY, 0);
         if (err) {
@@ -1418,7 +1417,7 @@ iwm_run_stop(struct iwm_softc *sc)
     
     /* Reset Tx chains in case MIMO was enabled. */
     if ((in->in_ni.ni_flags & IEEE80211_NODE_HT) &&
-        !sc->sc_nvm.sku_cap_mimo_disable) {
+        !sc->nvm_data->sku_cap_mimo_disable) {
         err = iwm_phy_ctxt_cmd(sc, &sc->sc_phyctxt[0], 1, 1,
                                IWM_FW_CTXT_ACTION_MODIFY, 0);
         if (err) {
@@ -2007,7 +2006,7 @@ iwm_init_hw(struct iwm_softc *sc)
     }
     
     /* Restart, this time with the regular firmware */
-    err = iwm_load_ucode_wait_alive(sc, IWM_UCODE_TYPE_REGULAR);
+    err = iwm_load_ucode_wait_alive(sc, IWM_UCODE_REGULAR);
     if (err) {
         XYLog("%s: could not load firmware\n", DEVNAME(sc));
         goto err;
@@ -2023,14 +2022,19 @@ iwm_init_hw(struct iwm_softc *sc)
         goto err;
     }
     
-    err = iwm_send_tx_ant_cfg(sc, iwm_fw_valid_tx_ant(sc));
+    //TODO smart FIFO
+//    err = iwm_sf_update(sc, NULL, FALSE);
+//    if (err)
+//        XYLog("Failed to initialize Smart Fifo\n");
+    
+    err = iwm_send_tx_ant_cfg(sc, iwm_get_valid_tx_ant(sc));
     if (err) {
         XYLog("%s: could not init tx ant config (error %d)\n",
               DEVNAME(sc), err);
         goto err;
     }
     
-    err = iwm_send_phy_db_data(sc);
+    err = iwm_send_phy_db_data(sc->sc_phy_db);
     if (err) {
         XYLog("%s: could not init phy db (error %d)\n",
               DEVNAME(sc), err);
@@ -2079,7 +2083,7 @@ iwm_init_hw(struct iwm_softc *sc)
         goto err;
     }
     
-    if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_LAR_SUPPORT)) {
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_LAR_SUPPORT)) {
         err = iwm_send_update_mcc_cmd(sc, "ZZ");
         if (err) {
             XYLog("%s: could not init LAR (error %d)\n",
@@ -2088,7 +2092,7 @@ iwm_init_hw(struct iwm_softc *sc)
         }
     }
     
-    if (isset(sc->sc_enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN)) {
+    if (isset(sc->sc_fw.ucode_capa.enabled_capa, IWM_UCODE_TLV_CAPA_UMAC_SCAN)) {
         err = iwm_config_umac_scan(sc);
         if (err) {
             XYLog("%s: could not configure scan (error %d)\n",
@@ -2116,6 +2120,7 @@ iwm_init_hw(struct iwm_softc *sc)
     
 err:
     iwm_nic_unlock(sc);
+    iwm_stop_device(sc);
     return err;
 }
 
@@ -2464,44 +2469,46 @@ iwm_nic_umac_error(struct iwm_softc *sc)
 {
     struct iwm_umac_error_event_table table;
     uint32_t base;
-    
-    base = sc->sc_uc.uc_umac_error_event_table;
-    
+
+    base = sc->umac_error_event_table;
+
     if (base < 0x800000) {
-        XYLog("%s: Invalid error log pointer 0x%08x\n",
-              DEVNAME(sc), base);
+        XYLog("Invalid error log pointer 0x%08x\n",
+            base);
         return;
     }
-    
+
     if (iwm_read_mem(sc, base, &table, sizeof(table)/sizeof(uint32_t))) {
-        XYLog("%s: reading errlog failed\n", DEVNAME(sc));
+        XYLog("reading errlog failed\n");
         return;
     }
-    
+
     if (ERROR_START_OFFSET <= table.valid * ERROR_ELEM_SIZE) {
-        XYLog("%s: Start UMAC Error Log Dump:\n", DEVNAME(sc));
-        XYLog("%s: Status: 0x%x, count: %d\n", DEVNAME(sc),
-              sc->sc_flags, table.valid);
+        XYLog("Start UMAC Error Log Dump:\n");
+        XYLog("Status: 0x%x, count: %d\n",
+            sc->sc_flags, table.valid);
     }
-    
-    XYLog("%s: 0x%08X | %s\n", DEVNAME(sc), table.error_id,
-          iwm_desc_lookup(table.error_id));
-    XYLog("%s: 0x%08X | umac branchlink1\n", DEVNAME(sc), table.blink1);
-    XYLog("%s: 0x%08X | umac branchlink2\n", DEVNAME(sc), table.blink2);
-    XYLog("%s: 0x%08X | umac interruptlink1\n", DEVNAME(sc), table.ilink1);
-    XYLog("%s: 0x%08X | umac interruptlink2\n", DEVNAME(sc), table.ilink2);
-    XYLog("%s: 0x%08X | umac data1\n", DEVNAME(sc), table.data1);
-    XYLog("%s: 0x%08X | umac data2\n", DEVNAME(sc), table.data2);
-    XYLog("%s: 0x%08X | umac data3\n", DEVNAME(sc), table.data3);
-    XYLog("%s: 0x%08X | umac major\n", DEVNAME(sc), table.umac_major);
-    XYLog("%s: 0x%08X | umac minor\n", DEVNAME(sc), table.umac_minor);
-    XYLog("%s: 0x%08X | frame pointer\n", DEVNAME(sc),
-          table.frame_pointer);
-    XYLog("%s: 0x%08X | stack pointer\n", DEVNAME(sc),
-          table.stack_pointer);
-    XYLog("%s: 0x%08X | last host cmd\n", DEVNAME(sc), table.cmd_header);
-    XYLog("%s: 0x%08X | isr status reg\n", DEVNAME(sc),
-          table.nic_isr_pref);
+
+    XYLog("0x%08X | %s\n", table.error_id,
+        iwm_desc_lookup(table.error_id));
+    XYLog("0x%08X | umac branchlink1\n", table.blink1);
+    XYLog("0x%08X | umac branchlink2\n", table.blink2);
+    XYLog("0x%08X | umac interruptlink1\n",
+        table.ilink1);
+    XYLog("0x%08X | umac interruptlink2\n",
+        table.ilink2);
+    XYLog("0x%08X | umac data1\n", table.data1);
+    XYLog("0x%08X | umac data2\n", table.data2);
+    XYLog("0x%08X | umac data3\n", table.data3);
+    XYLog("0x%08X | umac major\n", table.umac_major);
+    XYLog("0x%08X | umac minor\n", table.umac_minor);
+    XYLog("0x%08X | frame pointer\n",
+        table.frame_pointer);
+    XYLog("0x%08X | stack pointer\n",
+        table.stack_pointer);
+    XYLog("0x%08X | last host cmd\n", table.cmd_header);
+    XYLog("0x%08X | isr status reg\n",
+        table.nic_isr_pref);
 }
 
 struct {
@@ -2551,73 +2558,70 @@ iwm_nic_error(struct iwm_softc *sc)
 {
     struct iwm_error_event_table table;
     uint32_t base;
-    
-    XYLog("%s: dumping device error log\n", DEVNAME(sc));
-    base = sc->sc_uc.uc_error_event_table;
+
+    XYLog("dumping device error log\n");
+    base = sc->error_event_table[0];
     if (base < 0x800000) {
-        XYLog("%s: Invalid error log pointer 0x%08x\n",
-              DEVNAME(sc), base);
+        XYLog("Invalid error log pointer 0x%08x\n", base);
         return;
     }
-    
+
     if (iwm_read_mem(sc, base, &table, sizeof(table)/sizeof(uint32_t))) {
-        XYLog("%s: reading errlog failed\n", DEVNAME(sc));
+        XYLog("reading errlog failed\n");
         return;
     }
-    
+
     if (!table.valid) {
-        XYLog("%s: errlog not found, skipping\n", DEVNAME(sc));
+        XYLog("errlog not found, skipping\n");
         return;
     }
-    
+
     if (ERROR_START_OFFSET <= table.valid * ERROR_ELEM_SIZE) {
-        XYLog("%s: Start Error Log Dump:\n", DEVNAME(sc));
-        XYLog("%s: Status: 0x%x, count: %d\n", DEVNAME(sc),
-              sc->sc_flags, table.valid);
+        XYLog("Start Error Log Dump:\n");
+        XYLog("Status: 0x%x, count: %d\n",
+            sc->sc_flags, table.valid);
     }
-    
-    XYLog("%s: 0x%08X | %-28s\n", DEVNAME(sc), table.error_id,
-          iwm_desc_lookup(table.error_id));
-    XYLog("%s: %08X | trm_hw_status0\n", DEVNAME(sc),
-          table.trm_hw_status0);
-    XYLog("%s: %08X | trm_hw_status1\n", DEVNAME(sc),
-          table.trm_hw_status1);
-    XYLog("%s: %08X | branchlink2\n", DEVNAME(sc), table.blink2);
-    XYLog("%s: %08X | interruptlink1\n", DEVNAME(sc), table.ilink1);
-    XYLog("%s: %08X | interruptlink2\n", DEVNAME(sc), table.ilink2);
-    XYLog("%s: %08X | data1\n", DEVNAME(sc), table.data1);
-    XYLog("%s: %08X | data2\n", DEVNAME(sc), table.data2);
-    XYLog("%s: %08X | data3\n", DEVNAME(sc), table.data3);
-    XYLog("%s: %08X | beacon time\n", DEVNAME(sc), table.bcon_time);
-    XYLog("%s: %08X | tsf low\n", DEVNAME(sc), table.tsf_low);
-    XYLog("%s: %08X | tsf hi\n", DEVNAME(sc), table.tsf_hi);
-    XYLog("%s: %08X | time gp1\n", DEVNAME(sc), table.gp1);
-    XYLog("%s: %08X | time gp2\n", DEVNAME(sc), table.gp2);
-    XYLog("%s: %08X | uCode revision type\n", DEVNAME(sc),
-          table.fw_rev_type);
-    XYLog("%s: %08X | uCode version major\n", DEVNAME(sc),
-          table.major);
-    XYLog("%s: %08X | uCode version minor\n", DEVNAME(sc),
-          table.minor);
-    XYLog("%s: %08X | hw version\n", DEVNAME(sc), table.hw_ver);
-    XYLog("%s: %08X | board version\n", DEVNAME(sc), table.brd_ver);
-    XYLog("%s: %08X | hcmd\n", DEVNAME(sc), table.hcmd);
-    XYLog("%s: %08X | isr0\n", DEVNAME(sc), table.isr0);
-    XYLog("%s: %08X | isr1\n", DEVNAME(sc), table.isr1);
-    XYLog("%s: %08X | isr2\n", DEVNAME(sc), table.isr2);
-    XYLog("%s: %08X | isr3\n", DEVNAME(sc), table.isr3);
-    XYLog("%s: %08X | isr4\n", DEVNAME(sc), table.isr4);
-    XYLog("%s: %08X | last cmd Id\n", DEVNAME(sc), table.last_cmd_id);
-    XYLog("%s: %08X | wait_event\n", DEVNAME(sc), table.wait_event);
-    XYLog("%s: %08X | l2p_control\n", DEVNAME(sc), table.l2p_control);
-    XYLog("%s: %08X | l2p_duration\n", DEVNAME(sc), table.l2p_duration);
-    XYLog("%s: %08X | l2p_mhvalid\n", DEVNAME(sc), table.l2p_mhvalid);
-    XYLog("%s: %08X | l2p_addr_match\n", DEVNAME(sc), table.l2p_addr_match);
-    XYLog("%s: %08X | lmpm_pmg_sel\n", DEVNAME(sc), table.lmpm_pmg_sel);
-    XYLog("%s: %08X | timestamp\n", DEVNAME(sc), table.u_timestamp);
-    XYLog("%s: %08X | flow_handler\n", DEVNAME(sc), table.flow_handler);
-    
-    if (sc->sc_uc.uc_umac_error_event_table)
+
+    XYLog("0x%08X | %-28s\n", table.error_id,
+        iwm_desc_lookup(table.error_id));
+    XYLog("%08X | trm_hw_status0\n",
+        table.trm_hw_status0);
+    XYLog("%08X | trm_hw_status1\n",
+        table.trm_hw_status1);
+    XYLog("%08X | branchlink2\n", table.blink2);
+    XYLog("%08X | interruptlink1\n", table.ilink1);
+    XYLog("%08X | interruptlink2\n", table.ilink2);
+    XYLog("%08X | data1\n", table.data1);
+    XYLog("%08X | data2\n", table.data2);
+    XYLog("%08X | data3\n", table.data3);
+    XYLog("%08X | beacon time\n", table.bcon_time);
+    XYLog("%08X | tsf low\n", table.tsf_low);
+    XYLog("%08X | tsf hi\n", table.tsf_hi);
+    XYLog("%08X | time gp1\n", table.gp1);
+    XYLog("%08X | time gp2\n", table.gp2);
+    XYLog("%08X | uCode revision type\n",
+        table.fw_rev_type);
+    XYLog("%08X | uCode version major\n", table.major);
+    XYLog("%08X | uCode version minor\n", table.minor);
+    XYLog("%08X | hw version\n", table.hw_ver);
+    XYLog("%08X | board version\n", table.brd_ver);
+    XYLog("%08X | hcmd\n", table.hcmd);
+    XYLog("%08X | isr0\n", table.isr0);
+    XYLog("%08X | isr1\n", table.isr1);
+    XYLog("%08X | isr2\n", table.isr2);
+    XYLog("%08X | isr3\n", table.isr3);
+    XYLog("%08X | isr4\n", table.isr4);
+    XYLog("%08X | last cmd Id\n", table.last_cmd_id);
+    XYLog("%08X | wait_event\n", table.wait_event);
+    XYLog("%08X | l2p_control\n", table.l2p_control);
+    XYLog("%08X | l2p_duration\n", table.l2p_duration);
+    XYLog("%08X | l2p_mhvalid\n", table.l2p_mhvalid);
+    XYLog("%08X | l2p_addr_match\n", table.l2p_addr_match);
+    XYLog("%08X | lmpm_pmg_sel\n", table.lmpm_pmg_sel);
+    XYLog("%08X | timestamp\n", table.u_timestamp);
+    XYLog("%08X | flow_handler\n", table.flow_handler);
+
+    if (sc->umac_error_event_table)
         iwm_nic_umac_error(sc);
 }
 #endif
@@ -2639,312 +2643,365 @@ _ptr_ = (void *)((_pkt_)+1);                    \
 #define ADVANCE_RXQ(sc) (sc->rxq.cur = (sc->rxq.cur + 1) % IWM_RX_RING_COUNT);
 
 void itlwm::
-iwm_notif_intr(struct iwm_softc *sc)
+iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 {
-    XYLog("%s\n", __func__);
-    struct mbuf_list ml = MBUF_LIST_INITIALIZER();
-    uint16_t hw;
-    
-    //        bus_dmamap_sync(sc->sc_dmat, sc->rxq.stat_dma.map,
-    //            0, sc->rxq.stat_dma.size, BUS_DMASYNC_POSTREAD);
-    
-    hw = le16toh(sc->rxq.stat->closed_rb_num) & 0xfff;
-    hw &= (IWM_RX_RING_COUNT - 1);
-    if (sc->rxq.cur == hw) {
-        XYLog("sc->rxq.cur == hw, nothing was sent by ucode\n");
-    }
-    while (sc->rxq.cur != hw) {
-        struct iwm_rx_data *data = &sc->rxq.data[sc->rxq.cur];
-        struct iwm_rx_packet *pkt;
-        int qid, idx, code, handled = 1;
-        
-        bus_dmamap_sync(sc->sc_dmat, data->map, 0, sizeof(*pkt),
-                        BUS_DMASYNC_POSTREAD);
-        pkt = mtod(data->m, struct iwm_rx_packet *);
-        
-        if (pkt == NULL) {
-            XYLog("%s pkt==NULL!!!!", __func__);
-            break;
-        }
-        
+    struct ieee80211com *ic = &sc->sc_ic;
+    struct iwm_cmd_response *cresp;
+    mbuf_t m1;
+    uint32_t offset = 0;
+    uint32_t maxoff = IWM_RBUF_SIZE;
+    uint32_t nextoff;
+    boolean_t stolen = FALSE;
+
+#define HAVEROOM(a)    \
+    ((a) + sizeof(uint32_t) + sizeof(struct iwm_cmd_header) < maxoff)
+
+    while (HAVEROOM(offset)) {
+        struct iwm_rx_packet *pkt = mtodoff(m, struct iwm_rx_packet *,
+            offset);
+        int qid, idx, code, len;
+
         qid = pkt->hdr.qid;
         idx = pkt->hdr.idx;
-        
+
         code = IWM_WIDE_ID(pkt->hdr.flags, pkt->hdr.code);
-        
-        XYLog("code=0x%02x\n", code);
-        
+
         /*
          * randomly get these from the firmware, no idea why.
          * they at least seem harmless, so just ignore them for now
          */
-        if ((pkt->hdr.code == 0 && (qid & ~0x80) == 0
-             && idx == 0) || pkt->len_n_flags == htole32(0x55550000)) {
-            ADVANCE_RXQ(sc);
-            continue;
+        if ((pkt->hdr.code == 0 && (qid & ~0x80) == 0 && idx == 0) ||
+            pkt->len_n_flags == htole32(IWM_FH_RSCSR_FRAME_INVALID)) {
+            break;
         }
-        
+
+        XYLog("rx packet qid=%d idx=%d type=%x\n",
+            qid & ~0x80, pkt->hdr.idx, code);
+
+        len = iwm_rx_packet_len(pkt);
+        len += sizeof(uint32_t); /* account for status word */
+        nextoff = offset + _ALIGN(len, IWM_FH_RSCSR_FRAME_ALIGN);
+
+        iwm_notification_wait_notify(sc->sc_notif_wait, code, pkt);
+
         switch (code) {
-            case IWM_REPLY_RX_PHY_CMD:
-                iwm_rx_rx_phy_cmd(sc, pkt, data);
-                break;
-                
-            case IWM_REPLY_RX_MPDU_CMD:
-                iwm_rx_rx_mpdu(sc, pkt, data, &ml);
-                break;
-                
-            case IWM_TX_CMD:
-                iwm_rx_tx_cmd(sc, pkt, data);
-                break;
-                
-            case IWM_MISSED_BEACONS_NOTIFICATION:
-                iwm_rx_bmiss(sc, pkt, data);
-                break;
-                
-            case IWM_MFUART_LOAD_NOTIFICATION:
-                break;
-                
-            case IWM_ALIVE: {
-                struct iwm_alive_resp_v1 *resp1;
-                struct iwm_alive_resp_v2 *resp2;
-                struct iwm_alive_resp_v3 *resp3;
-                
-                if (iwm_rx_packet_payload_len(pkt) == sizeof(*resp1)) {
-                    SYNC_RESP_STRUCT(resp1, pkt, struct iwm_alive_resp_v1 *);
-                    sc->sc_uc.uc_error_event_table
-                    = le32toh(resp1->error_event_table_ptr);
-                    sc->sc_uc.uc_log_event_table
-                    = le32toh(resp1->log_event_table_ptr);
-                    sc->sched_base = le32toh(resp1->scd_base_ptr);
-                    if (resp1->status == IWM_ALIVE_STATUS_OK)
-                        sc->sc_uc.uc_ok = 1;
-                    else
-                        sc->sc_uc.uc_ok = 0;
+        case IWM_REPLY_RX_PHY_CMD:
+            iwm_rx_rx_phy_cmd(sc, pkt);
+            break;
+
+        case IWM_REPLY_RX_MPDU_CMD: {
+            /*
+             * If this is the last frame in the RX buffer, we
+             * can directly feed the mbuf to the sharks here.
+             */
+            struct iwm_rx_packet *nextpkt = mtodoff(m,
+                struct iwm_rx_packet *, nextoff);
+            if (!HAVEROOM(nextoff) ||
+                (nextpkt->hdr.code == 0 &&
+                 (nextpkt->hdr.qid & ~0x80) == 0 &&
+                 nextpkt->hdr.idx == 0) ||
+                (nextpkt->len_n_flags ==
+                 htole32(IWM_FH_RSCSR_FRAME_INVALID))) {
+                if ( iwm_rx_mpdu(sc, m, offset, stolen)) {
+                    stolen = FALSE;
+                    /* Make sure we abort the loop */
+                    nextoff = maxoff;
                 }
-                
-                if (iwm_rx_packet_payload_len(pkt) == sizeof(*resp2)) {
-                    SYNC_RESP_STRUCT(resp2, pkt, struct iwm_alive_resp_v2 *);
-                    sc->sc_uc.uc_error_event_table
-                    = le32toh(resp2->error_event_table_ptr);
-                    sc->sc_uc.uc_log_event_table
-                    = le32toh(resp2->log_event_table_ptr);
-                    sc->sched_base = le32toh(resp2->scd_base_ptr);
-                    sc->sc_uc.uc_umac_error_event_table
-                    = le32toh(resp2->error_info_addr);
-                    if (resp2->status == IWM_ALIVE_STATUS_OK)
-                        sc->sc_uc.uc_ok = 1;
-                    else
-                        sc->sc_uc.uc_ok = 0;
-                }
-                
-                if (iwm_rx_packet_payload_len(pkt) == sizeof(*resp3)) {
-                    SYNC_RESP_STRUCT(resp3, pkt, struct iwm_alive_resp_v3 *);
-                    sc->sc_uc.uc_error_event_table
-                    = le32toh(resp3->error_event_table_ptr);
-                    sc->sc_uc.uc_log_event_table
-                    = le32toh(resp3->log_event_table_ptr);
-                    sc->sched_base = le32toh(resp3->scd_base_ptr);
-                    sc->sc_uc.uc_umac_error_event_table
-                    = le32toh(resp3->error_info_addr);
-                    if (resp3->status == IWM_ALIVE_STATUS_OK)
-                        sc->sc_uc.uc_ok = 1;
-                    else
-                        sc->sc_uc.uc_ok = 0;
-                }
-                
-                sc->sc_uc.uc_intr = 1;
-                wakeupOn(&sc->sc_uc);
                 break;
             }
-                
-            case IWM_CALIB_RES_NOTIF_PHY_DB: {
-                struct iwm_calib_res_notif_phy_db *phy_db_notif;
-                SYNC_RESP_STRUCT(phy_db_notif, pkt, struct iwm_calib_res_notif_phy_db *);
-                iwm_phy_db_set_section(sc, phy_db_notif);
-                sc->sc_init_complete |= IWM_CALIB_COMPLETE;
-                //                wakeupOn(&sc->sc_init_complete);
-                break;
+
+            /*
+             * Use m_copym instead of m_split, because that
+             * makes it easier to keep a valid rx buffer in
+             * the ring, when iwm_rx_mpdu() fails.
+             *
+             * We need to start m_copym() at offset 0, to get the
+             * M_PKTHDR flag preserved.
+             */
+            m1 = m_copym(m, 0, M_COPYALL, M_NOWAIT);
+            if (m1) {
+                if (iwm_rx_mpdu(sc, m1, offset, stolen))
+                    stolen = TRUE;
+                else
+                    mbuf_freem(m1);
             }
-                
-            case IWM_STATISTICS_NOTIFICATION: {
-                struct iwm_notif_statistics *stats;
-                SYNC_RESP_STRUCT(stats, pkt, struct iwm_notif_statistics *);
-                memcpy(&sc->sc_stats, stats, sizeof(sc->sc_stats));
-                sc->sc_noise = iwm_get_noise(&stats->rx.general);
-                break;
-            }
-                
-            case IWM_MCC_CHUB_UPDATE_CMD: {
-                struct iwm_mcc_chub_notif *notif;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_mcc_chub_notif *);
-                
-                sc->sc_fw_mcc[0] = (notif->mcc & 0xff00) >> 8;
-                sc->sc_fw_mcc[1] = notif->mcc & 0xff;
-                sc->sc_fw_mcc[2] = '\0';
-            }
-                
-            case IWM_DTS_MEASUREMENT_NOTIFICATION:
-                break;
-                
-            case IWM_PHY_CONFIGURATION_CMD:
-            case IWM_TX_ANT_CONFIGURATION_CMD:
-            case IWM_ADD_STA:
-            case IWM_MAC_CONTEXT_CMD:
-            case IWM_REPLY_SF_CFG_CMD:
-            case IWM_POWER_TABLE_CMD:
-            case IWM_PHY_CONTEXT_CMD:
-            case IWM_BINDING_CONTEXT_CMD:
-            case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_CFG_CMD):
-            case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_REQ_UMAC):
-            case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_ABORT_UMAC):
-            case IWM_SCAN_OFFLOAD_REQUEST_CMD:
-            case IWM_SCAN_OFFLOAD_ABORT_CMD:
-            case IWM_REPLY_BEACON_FILTERING_CMD:
-            case IWM_MAC_PM_POWER_TABLE:
-            case IWM_TIME_QUOTA_CMD:
-            case IWM_REMOVE_STA:
-            case IWM_TXPATH_FLUSH:
-            case IWM_LQ_CMD:
-            case IWM_BT_CONFIG:
-            case IWM_REPLY_THERMAL_MNG_BACKOFF:
-            case IWM_NVM_ACCESS_CMD:
-            case IWM_MCC_UPDATE_CMD:
-            case IWM_TIME_EVENT_CMD: {
-                size_t pkt_len;
-                
-                if (sc->sc_cmd_resp_pkt[idx] == NULL)
-                    break;
-                
-                bus_dmamap_sync(sc->sc_dmat, data->map, 0,
-                                sizeof(*pkt), BUS_DMASYNC_POSTREAD);
-                
-                pkt_len = sizeof(pkt->len_n_flags) +
-                iwm_rx_packet_len(pkt);
-                
-                if ((pkt->hdr.flags & IWM_CMD_FAILED_MSK) ||
-                    pkt_len < sizeof(*pkt) ||
-                    pkt_len > sc->sc_cmd_resp_len[idx]) {
-                    free(sc->sc_cmd_resp_pkt[idx], M_DEVBUF,
-                         sc->sc_cmd_resp_len[idx]);
-                    sc->sc_cmd_resp_pkt[idx] = NULL;
-                    break;
-                }
-                
-                //                bus_dmamap_sync(sc->sc_dmat, data->map, sizeof(*pkt),
-                //                                pkt_len - sizeof(*pkt), BUS_DMASYNC_POSTREAD);
-                memcpy(sc->sc_cmd_resp_pkt[idx], pkt, pkt_len);
-                break;
-            }
-                
-                /* ignore */
-            case 0x6c: /* IWM_PHY_DB_CMD */
-                break;
-                
-            case IWM_INIT_COMPLETE_NOTIF:
-                sc->sc_init_complete |= IWM_INIT_COMPLETE;
-                wakeupOn(&sc->sc_init_complete);
-                break;
-                
-            case IWM_SCAN_OFFLOAD_COMPLETE: {
-                struct iwm_periodic_scan_complete *notif;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_periodic_scan_complete *);
-                break;
-            }
-                
-            case IWM_SCAN_ITERATION_COMPLETE: {
-                struct iwm_lmac_scan_complete_notif *notif;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_lmac_scan_complete_notif *);
-                iwm_endscan(sc);
-                break;
-            }
-                
-            case IWM_SCAN_COMPLETE_UMAC: {
-                struct iwm_umac_scan_complete *notif;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_umac_scan_complete *);
-                iwm_endscan(sc);
-                break;
-            }
-                
-            case IWM_SCAN_ITERATION_COMPLETE_UMAC: {
-                struct iwm_umac_scan_iter_complete_notif *notif;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_umac_scan_iter_complete_notif *);
-                iwm_endscan(sc);
-                break;
-            }
-                
-            case IWM_REPLY_ERROR: {
-                struct iwm_error_resp *resp;
-                SYNC_RESP_STRUCT(resp, pkt, struct iwm_error_resp *);
-                XYLog("%s: firmware error 0x%x, cmd 0x%x\n",
-                      DEVNAME(sc), le32toh(resp->error_type),
-                      resp->cmd_id);
-                break;
-            }
-                
-            case IWM_TIME_EVENT_NOTIFICATION: {
-                struct iwm_time_event_notif *notif;
-                uint32_t action;
-                SYNC_RESP_STRUCT(notif, pkt, struct iwm_time_event_notif *);
-                
-                if (sc->sc_time_event_uid != le32toh(notif->unique_id))
-                    break;
-                action = le32toh(notif->action);
-                if (action & IWM_TE_V2_NOTIF_HOST_EVENT_END)
-                    sc->sc_flags &= ~IWM_FLAG_TE_ACTIVE;
-                break;
-            }
-                
-            case IWM_WIDE_ID(IWM_SYSTEM_GROUP,
-                             IWM_FSEQ_VER_MISMATCH_NOTIFICATION):
-                break;
-                
-                /*
-                 * Firmware versions 21 and 22 generate some DEBUG_LOG_MSG
-                 * messages. Just ignore them for now.
-                 */
-            case IWM_DEBUG_LOG_MSG:
-                break;
-                
-            case IWM_MCAST_FILTER_CMD:
-                break;
-                
-            case IWM_SCD_QUEUE_CFG: {
-                struct iwm_scd_txq_cfg_rsp *rsp;
-                SYNC_RESP_STRUCT(rsp, pkt, struct iwm_scd_txq_cfg_rsp *);
-                
-                break;
-            }
-                
-            default:
-                handled = 0;
-                XYLog("%s: unhandled firmware response 0x%x/0x%x "
-                      "rx ring %d[%d]\n",
-                      DEVNAME(sc), code, pkt->len_n_flags,
-                      (qid & ~0x80), idx);
-                break;
+            break;
         }
-        
+
+        case IWM_TX_CMD:
+            iwm_rx_tx_cmd(sc, pkt);
+            break;
+
+        case IWM_MISSED_BEACONS_NOTIFICATION: {
+            struct iwm_missed_beacons_notif *resp;
+            int missed;
+
+            /* XXX look at mac_id to determine interface ID */
+//            struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
+
+            resp = (struct iwm_missed_beacons_notif *)pkt->data;
+            missed = le32toh(resp->consec_missed_beacons);
+
+            XYLog("%s: MISSED_BEACON: mac_id=%d, "
+                "consec_since_last_rx=%d, consec=%d, num_expect=%d "
+                "num_rx=%d\n",
+                __func__,
+                le32toh(resp->mac_id),
+                le32toh(resp->consec_missed_beacons_since_last_rx),
+                le32toh(resp->consec_missed_beacons),
+                le32toh(resp->num_expected_beacons),
+                le32toh(resp->num_recvd_beacons));
+
+//            /* Be paranoid */
+//            if (vap == NULL)
+//                break;
+//
+//            /* XXX no net80211 locking? */
+//            if (vap->iv_state == IEEE80211_S_RUN &&
+//                (ic->ic_flags & IEEE80211_F_SCAN) == 0) {
+//                if (missed > vap->iv_bmissthreshold) {
+//                    /* XXX bad locking; turn into task */
+//                    IWM_UNLOCK(sc);
+//                    ieee80211_beacon_miss(ic);
+//                    IWM_LOCK(sc);
+//                }
+//            }
+
+            break;
+        }
+
+        case IWM_MFUART_LOAD_NOTIFICATION:
+            break;
+
+        case IWM_ALIVE:
+            break;
+
+        case IWM_CALIB_RES_NOTIF_PHY_DB:
+            break;
+
+        case IWM_STATISTICS_NOTIFICATION:
+            iwm_handle_rx_statistics(sc, pkt);
+            break;
+
+        case IWM_NVM_ACCESS_CMD:
+        case IWM_MCC_UPDATE_CMD:
+            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
+                memcpy(sc->sc_cmd_resp,
+                    pkt, sizeof(sc->sc_cmd_resp));
+            }
+            break;
+
+        case IWM_MCC_CHUB_UPDATE_CMD: {
+            struct iwm_mcc_chub_notif *notif;
+            notif = (struct iwm_mcc_chub_notif *)pkt->data;
+
+            sc->sc_fw_mcc[0] = (notif->mcc & 0xff00) >> 8;
+            sc->sc_fw_mcc[1] = notif->mcc & 0xff;
+            sc->sc_fw_mcc[2] = '\0';
+            XYLog("fw source %d sent CC '%s'\n",
+                notif->source_id, sc->sc_fw_mcc);
+            break;
+        }
+
+        case IWM_DTS_MEASUREMENT_NOTIFICATION:
+        case IWM_WIDE_ID(IWM_PHY_OPS_GROUP,
+                 IWM_DTS_MEASUREMENT_NOTIF_WIDE): {
+            struct iwm_dts_measurement_notif_v1 *notif;
+
+            if (iwm_rx_packet_payload_len(pkt) < sizeof(*notif)) {
+                XYLog("Invalid DTS_MEASUREMENT_NOTIFICATION\n");
+                break;
+            }
+            notif = (struct iwm_dts_measurement_notif_v1 *)pkt->data;
+            XYLog("IWM_DTS_MEASUREMENT_NOTIFICATION - %d\n",
+                notif->temp);
+            break;
+        }
+
+        case IWM_PHY_CONFIGURATION_CMD:
+        case IWM_TX_ANT_CONFIGURATION_CMD:
+        case IWM_ADD_STA:
+        case IWM_MAC_CONTEXT_CMD:
+        case IWM_REPLY_SF_CFG_CMD:
+        case IWM_POWER_TABLE_CMD:
+        case IWM_LTR_CONFIG:
+        case IWM_PHY_CONTEXT_CMD:
+        case IWM_BINDING_CONTEXT_CMD:
+        case IWM_TIME_EVENT_CMD:
+        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_CFG_CMD):
+        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_REQ_UMAC):
+        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_ABORT_UMAC):
+        case IWM_SCAN_OFFLOAD_REQUEST_CMD:
+        case IWM_SCAN_OFFLOAD_ABORT_CMD:
+        case IWM_REPLY_BEACON_FILTERING_CMD:
+        case IWM_MAC_PM_POWER_TABLE:
+        case IWM_TIME_QUOTA_CMD:
+        case IWM_REMOVE_STA:
+        case IWM_TXPATH_FLUSH:
+        case IWM_LQ_CMD:
+        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP,
+                 IWM_FW_PAGING_BLOCK_CMD):
+        case IWM_BT_CONFIG:
+        case IWM_REPLY_THERMAL_MNG_BACKOFF:
+            cresp = (struct iwm_cmd_response *)pkt->data;
+            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
+                memcpy(sc->sc_cmd_resp,
+                    pkt, sizeof(*pkt)+sizeof(*cresp));
+            }
+            break;
+
+        /* ignore */
+        case IWM_PHY_DB_CMD:
+            break;
+
+        case IWM_INIT_COMPLETE_NOTIF:
+            break;
+
+        case IWM_SCAN_OFFLOAD_COMPLETE:
+//            iwm_rx_lmac_scan_complete_notif(sc, pkt);
+//            if (sc->sc_flags & IWM_FLAG_SCAN_RUNNING) {
+//                sc->sc_flags &= ~IWM_FLAG_SCAN_RUNNING;
+//                ieee80211_runtask(ic, &sc->sc_es_task);
+//            }
+            break;
+
+        case IWM_SCAN_ITERATION_COMPLETE: {
+            struct iwm_lmac_scan_complete_notif *notif;
+            notif = (struct iwm_lmac_scan_complete_notif *)pkt->data;
+            break;
+        }
+
+        case IWM_SCAN_COMPLETE_UMAC:
+            iwm_rx_umac_scan_complete_notif(sc, pkt);
+            if (sc->sc_flags & IWM_FLAG_SCAN_RUNNING) {
+                sc->sc_flags &= ~IWM_FLAG_SCAN_RUNNING;
+                ieee80211_runtask(ic, &sc->sc_es_task);
+            }
+            break;
+
+        case IWM_SCAN_ITERATION_COMPLETE_UMAC: {
+            struct iwm_umac_scan_iter_complete_notif *notif;
+            notif = (struct iwm_umac_scan_iter_complete_notif *)pkt->data;
+
+            IWM_DPRINTF(sc, IWM_DEBUG_SCAN, "UMAC scan iteration "
+                "complete, status=0x%x, %d channels scanned\n",
+                notif->status, notif->scanned_channels);
+            break;
+        }
+
+        case IWM_REPLY_ERROR: {
+            struct iwm_error_resp *resp;
+            resp = (void *)pkt->data;
+
+            device_printf(sc->sc_dev,
+                "firmware error 0x%x, cmd 0x%x\n",
+                le32toh(resp->error_type),
+                resp->cmd_id);
+            break;
+        }
+
+        case IWM_TIME_EVENT_NOTIFICATION:
+            iwm_rx_time_event_notif(sc, pkt);
+            break;
+
         /*
-         * uCode sets bit 0x80 when it originates the notification,
-         * i.e. when the notification is not a direct response to a
-         * command sent by the driver.
-         * For example, uCode issues IWM_REPLY_RX when it sends a
-         * received frame to the driver.
+         * Firmware versions 21 and 22 generate some DEBUG_LOG_MSG
+         * messages. Just ignore them for now.
          */
-        if (handled && !(qid & (1 << 7))) {
-            iwm_cmd_done(sc, qid, idx, code);
+        case IWM_DEBUG_LOG_MSG:
+            break;
+
+        case IWM_MCAST_FILTER_CMD:
+            break;
+
+        case IWM_SCD_QUEUE_CFG: {
+            struct iwm_scd_txq_cfg_rsp *rsp;
+            rsp = (void *)pkt->data;
+
+            XYLog("queue cfg token=0x%x sta_id=%d "
+                "tid=%d scd_queue=%d\n",
+                rsp->token, rsp->sta_id, rsp->tid,
+                rsp->scd_queue);
+            break;
         }
-        
-        ADVANCE_RXQ(sc);
+
+        default:
+            XYLog("frame %d/%d %x UNHANDLED (this should "
+                "not happen)\n", qid & ~0x80, idx,
+                pkt->len_n_flags);
+            break;
+        }
+
+        /*
+         * Why test bit 0x80?  The Linux driver:
+         *
+         * There is one exception:  uCode sets bit 15 when it
+         * originates the response/notification, i.e. when the
+         * response/notification is not a direct response to a
+         * command sent by the driver.  For example, uCode issues
+         * IWM_REPLY_RX when it sends a received frame to the driver;
+         * it is not a direct response to any driver command.
+         *
+         * Ok, so since when is 7 == 15?  Well, the Linux driver
+         * uses a slightly different format for pkt->hdr, and "qid"
+         * is actually the upper byte of a two-byte field.
+         */
+        if (!(qid & (1 << 7)))
+            iwm_cmd_done(sc, pkt);
+
+        offset = nextoff;
     }
-    if_input(&sc->sc_ic.ic_if, &ml);
+    if (stolen)
+        mbuf_freem(m);
+#undef HAVEROOM
+}
+
+void itlwm::
+iwm_notif_intr(struct iwm_softc *sc)
+{
+    XYLog("%s\n", __func__);
     
+    int count;
+    uint32_t wreg;
+    uint16_t hw;
+
+//    bus_dmamap_sync(sc->rxq.stat_dma.tag, sc->rxq.stat_dma.map,
+//        BUS_DMASYNC_POSTREAD);
+
+    if (sc->cfg->mqrx_supported) {
+        count = IWM_RX_MQ_RING_COUNT;
+        wreg = IWM_RFH_Q0_FRBDCB_WIDX_TRG;
+    } else {
+        count = IWM_RX_LEGACY_RING_COUNT;
+        wreg = IWM_FH_RSCSR_CHNL0_WPTR;
+    }
+
+    hw = le16toh(sc->rxq.stat->closed_rb_num) & 0xfff;
+
     /*
-     * Tell the firmware what we have processed.
-     * Seems like the hardware gets upset unless we align the write by 8??
+     * Process responses
      */
-    hw = (hw == 0) ? IWM_RX_RING_COUNT - 1 : hw - 1;
-    IWM_WRITE(sc, IWM_FH_RSCSR_CHNL0_WPTR, hw & ~7);
+    while (sc->rxq.cur != hw) {
+        struct iwm_rx_ring *ring = &sc->rxq;
+        struct iwm_rx_data *data = &ring->data[ring->cur];
+
+//        bus_dmamap_sync(ring->data_dmat, data->map,
+//            BUS_DMASYNC_POSTREAD);
+
+        XYLog("%s: hw = %d cur = %d\n", __func__, hw, ring->cur);
+        iwm_handle_rxb(sc, data->m);
+
+        ring->cur = (ring->cur + 1) % count;
+    }
+
+    /*
+     * Tell the firmware that it can reuse the ring entries that
+     * we have just processed.
+     * Seems like the hardware gets upset unless we align
+     * the write by 8??
+     */
+    hw = (hw == 0) ? count - 1 : hw - 1;
+    IWM_WRITE(sc, wreg, hw & ~7);
 }
 
 int itlwm::
@@ -3104,29 +3161,46 @@ typedef void *iwm_match_t;
 #define    PCI_PRODUCT_INTEL_WL_4165_2    0x24f6        /* Dual Band Wireless AC 4165 */
 #define    PCI_PRODUCT_INTEL_WL_3168_1    0x24fb        /* Dual Band Wireless-AC 3168 */
 #define    PCI_PRODUCT_INTEL_WL_8265_1    0x24fd        /* Dual Band Wireless-AC 8265 */
+#define    PCI_PRODUCT_INTEL_WL_9560_1    0x9df0
+#define    PCI_PRODUCT_INTEL_WL_9560_2    0xa370
+#define    PCI_PRODUCT_INTEL_WL_9260_1    0x2526
 
-static const struct pci_matchid iwm_devices[] = {
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_3160_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_3160_2 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_3165_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_3165_2 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_3168_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_7260_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_7260_2 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_7265_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_7265_2 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_8260_1 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_8260_2 },
-    { PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_WL_8265_1 },
+static const struct iwm_devices {
+    uint16_t        device;
+    const struct iwm_cfg    *cfg;
+} iwm_devices[] = {
+    { PCI_PRODUCT_INTEL_WL_3160_1, &iwm3160_cfg },
+    { PCI_PRODUCT_INTEL_WL_3160_2, &iwm3160_cfg },
+    { PCI_PRODUCT_INTEL_WL_3165_1, &iwm3165_cfg },
+    { PCI_PRODUCT_INTEL_WL_3165_2, &iwm3165_cfg },
+    { PCI_PRODUCT_INTEL_WL_3168_1, &iwm3168_cfg },
+    { PCI_PRODUCT_INTEL_WL_7260_1, &iwm7260_cfg },
+    { PCI_PRODUCT_INTEL_WL_7260_2, &iwm7260_cfg },
+    { PCI_PRODUCT_INTEL_WL_7265_1, &iwm7265_cfg },
+    { PCI_PRODUCT_INTEL_WL_7265_2, &iwm7265_cfg },
+    { PCI_PRODUCT_INTEL_WL_8260_1, &iwm8260_cfg },
+    { PCI_PRODUCT_INTEL_WL_8260_2, &iwm8260_cfg },
+    { PCI_PRODUCT_INTEL_WL_8265_1, &iwm8265_cfg },
+    { PCI_PRODUCT_INTEL_WL_9560_1, &iwm9560_cfg },
+    { PCI_PRODUCT_INTEL_WL_9560_2, &iwm9560_cfg },
+    { PCI_PRODUCT_INTEL_WL_9260_1, &iwm9260_cfg },
 };
 
 int itlwm::
 iwm_match(struct IOPCIDevice *device)
 {
     XYLog("%s\n", __func__);
+    iwm_softc *sc;
+    int i;
     int devId = device->configRead16(kIOPCIConfigDeviceID);
-    return pci_matchbyid(PCI_VENDOR_INTEL, devId, iwm_devices,
-                         nitems(iwm_devices));
+    sc = &com;
+    for (i = 0; i < nitems(iwm_devices); i++) {
+        if (iwm_devices[i].device == devId) {
+            sc->cfg = iwm_devices[i].cfg;
+            return (1);
+        }
+    }
+    return 0;
 }
 
 int itlwm::
@@ -3166,13 +3240,13 @@ iwm_preinit(struct iwm_softc *sc)
     attached = 1;
     XYLog("%s: hw rev 0x%x, fw ver %s, address %s\n",
           DEVNAME(sc), sc->sc_hw_rev & IWM_CSR_HW_REV_TYPE_MSK,
-          sc->sc_fwver, ether_sprintf(sc->sc_nvm.hw_addr));
+          sc->sc_fwver, ether_sprintf(sc->nvm_data->hw_addr));
     
-    if (sc->sc_nvm.sku_cap_11n_enable)
+    if (sc->nvm_data->sku_cap_11n_enable)
         iwm_setup_ht_rates(sc);
     
     /* not all hardware can do 5GHz band */
-    if (!sc->sc_nvm.sku_cap_band_52GHz_enable)
+    if (!sc->nvm_data->sku_cap_band_52GHz_enable)
         memset(&ic->ic_sup_rates[IEEE80211_MODE_11A], 0,
                sizeof(ic->ic_sup_rates[IEEE80211_MODE_11A]));
     
@@ -3286,96 +3360,48 @@ iwm_attach(struct iwm_softc *sc, struct pci_attach_args *pa)
     sc->sc_ih->enable();
     XYLog(", %s\n", intrstr);
     
-    sc->sc_hw_rev = IWM_READ(sc, IWM_CSR_HW_REV);
-    int pa_id = pa->pa_tag->configRead16(kIOPCIConfigDeviceID);
-    switch (pa_id) {
-        case PCI_PRODUCT_INTEL_WL_3160_1:
-        case PCI_PRODUCT_INTEL_WL_3160_2:
-            sc->sc_fwname = "iwlwifi-3160-16.ucode";
-            sc->host_interrupt_operation_mode = 1;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_7000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ;
-            break;
-        case PCI_PRODUCT_INTEL_WL_3165_1:
-        case PCI_PRODUCT_INTEL_WL_3165_2:
-            sc->sc_fwname = "iwlwifi-7265-16.ucode";
-            sc->host_interrupt_operation_mode = 0;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_7000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ;
-            break;
-        case PCI_PRODUCT_INTEL_WL_3168_1:
-            sc->sc_fwname = "iwlwifi-3168-27.ucode";
-            sc->host_interrupt_operation_mode = 0;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_7000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ;
-            break;
-        case PCI_PRODUCT_INTEL_WL_7260_1:
-        case PCI_PRODUCT_INTEL_WL_7260_2:
-            sc->sc_fwname = "iwlwifi-7260-16.ucode";
-            sc->host_interrupt_operation_mode = 1;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_7000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ;
-            break;
-        case PCI_PRODUCT_INTEL_WL_7265_1:
-        case PCI_PRODUCT_INTEL_WL_7265_2:
-            sc->sc_fwname = "iwlwifi-7265-16.ucode";
-            sc->host_interrupt_operation_mode = 0;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_7000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ;
-            break;
-        case PCI_PRODUCT_INTEL_WL_8260_1:
-        case PCI_PRODUCT_INTEL_WL_8260_2:
-            sc->sc_fwname = "iwlwifi-8000C-34.ucode";
-            sc->host_interrupt_operation_mode = 0;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_8000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ_8000;
-            break;
-        case PCI_PRODUCT_INTEL_WL_8265_1:
-            sc->sc_fwname = "iwlwifi-8265-34.ucode";
-            sc->host_interrupt_operation_mode = 0;
-            sc->sc_device_family = IWM_DEVICE_FAMILY_8000;
-            sc->sc_fwdmasegsz = IWM_FWDMASEGSZ_8000;
-            break;
-        default:
-            XYLog("%s: unknown adapter type\n", DEVNAME(sc));
-            return false;
-    }
-    
-    /*
-     * In the 8000 HW family the format of the 4 bytes of CSR_HW_REV have
-     * changed, and now the revision step also includes bit 0-1 (no more
-     * "dash" value). To keep hw_rev backwards compatible - we'll store it
-     * in the old format.
-     */
-    if (sc->sc_device_family == IWM_DEVICE_FAMILY_8000)
-        sc->sc_hw_rev = (sc->sc_hw_rev & 0xfff0) |
-        (IWM_CSR_HW_REV_STEP(sc->sc_hw_rev << 2) << 2);
-    
-    if (iwm_prepare_card_hw(sc) != 0) {
-        XYLog("%s: could not initialize hardware\n", DEVNAME(sc));
+    sc->sc_notif_wait = iwm_notification_wait_init(sc);
+    if (sc->sc_notif_wait == NULL) {
+        XYLog("failed to init notification wait struct\n");
         return false;
     }
     
-    if (sc->sc_device_family == IWM_DEVICE_FAMILY_8000) {
+    sc->sc_hw_rev = IWM_READ(sc, IWM_CSR_HW_REV);
+    /*
+    * In the 8000 HW family the format of the 4 bytes of CSR_HW_REV have
+    * changed, and now the revision step also includes bit 0-1 (no more
+    * "dash" value). To keep hw_rev backwards compatible - we'll store it
+    * in the old format.
+    */
+    if (sc->cfg->device_family >= IWM_DEVICE_FAMILY_8000) {
+        int ret;
         uint32_t hw_step;
-        
+
+        sc->sc_hw_rev = (sc->sc_hw_rev & 0xfff0) |
+                (IWM_CSR_HW_REV_STEP(sc->sc_hw_rev << 2) << 2);
+
+        if (iwm_prepare_card_hw(sc) != 0) {
+            XYLog("could not initialize hardware\n");
+            return false;
+        }
+
         /*
          * In order to recognize C step the driver should read the
          * chip version id located at the AUX bus MISC address.
          */
         IWM_SETBITS(sc, IWM_CSR_GP_CNTRL,
-                    IWM_CSR_GP_CNTRL_REG_FLAG_INIT_DONE);
+                IWM_CSR_GP_CNTRL_REG_FLAG_INIT_DONE);
         DELAY(2);
-        
-        err = iwm_poll_bit(sc, IWM_CSR_GP_CNTRL,
-                           IWM_CSR_GP_CNTRL_REG_FLAG_MAC_CLOCK_READY,
-                           IWM_CSR_GP_CNTRL_REG_FLAG_MAC_CLOCK_READY,
-                           25000);
-        if (!err) {
-            XYLog("%s: Failed to wake up the nic\n", DEVNAME(sc));
+
+        ret = iwm_poll_bit(sc, IWM_CSR_GP_CNTRL,
+                   IWM_CSR_GP_CNTRL_REG_FLAG_MAC_CLOCK_READY,
+                   IWM_CSR_GP_CNTRL_REG_FLAG_MAC_CLOCK_READY,
+                   25000);
+        if (!ret) {
+            XYLog("Failed to wake up the nic\n");
             return false;
         }
-        
+
         if (iwm_nic_lock(sc)) {
             hw_step = iwm_read_prph(sc, IWM_WFPM_CTRL_REG);
             hw_step |= IWM_ENABLE_WFPM;
@@ -3384,13 +3410,22 @@ iwm_attach(struct iwm_softc *sc, struct pci_attach_args *pa)
             hw_step = (hw_step >> IWM_HW_STEP_LOCATION_BITS) & 0xF;
             if (hw_step == 0x3)
                 sc->sc_hw_rev = (sc->sc_hw_rev & 0xFFFFFFF3) |
-                (IWM_SILICON_C_STEP << 2);
+                        (IWM_SILICON_C_STEP << 2);
             iwm_nic_unlock(sc);
         } else {
-            XYLog("%s: Failed to lock the nic\n", DEVNAME(sc));
+            XYLog("Failed to lock the nic\n");
             return false;
         }
     }
+    /* special-case 7265D, it has the same PCI IDs. */
+    if (sc->cfg == &iwm7265_cfg &&
+        (sc->sc_hw_rev & IWM_CSR_HW_REV_TYPE_MSK) == IWM_CSR_HW_REV_TYPE_7265D) {
+        sc->cfg = &iwm7265d_cfg;
+    }
+    
+    sc->sc_fwname = sc->cfg->fw_name;
+    sc->host_interrupt_operation_mode = 0;
+    sc->sc_device_family = sc->cfg->device_family;
     
     XYLog("alloc contig\n");
     
@@ -3399,7 +3434,7 @@ iwm_attach(struct iwm_softc *sc, struct pci_attach_args *pa)
      * Must be aligned on a 16-byte boundary.
      */
     err = iwm_dma_contig_alloc(sc->sc_dmat, &sc->fw_dma, NULL,
-                               sc->sc_fwdmasegsz, 16);
+                               IWM_FH_MEM_TB_MAX_LENGTH, 16);
     if (err) {
         XYLog("%s: could not allocate memory for firmware\n",
               DEVNAME(sc));
@@ -3486,6 +3521,9 @@ iwm_attach(struct iwm_softc *sc, struct pci_attach_args *pa)
     
     for (i = 0; i < nitems(sc->sc_phyctxt); i++) {
         sc->sc_phyctxt[i].id = i;
+        sc->sc_phyctxt[i].color = 0;
+        sc->sc_phyctxt[i].ref = 0;
+        sc->sc_phyctxt[i].channel = NULL;
     }
     
     sc->sc_amrr.amrr_min_success_threshold =  1;

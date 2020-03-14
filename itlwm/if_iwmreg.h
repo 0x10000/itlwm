@@ -625,27 +625,81 @@
 	"\020\1PAN\2NEWSCAN\3MFP\4P2P\5DW_BC_TABLE\6NEWBT_COEX\7PM_CMD\10SHORT_BL\11RX_ENERGY\12TIME_EVENT_V2\13D3_6_IPV6\14BF_UPDATED\15NO_BASIC_SSID\17D3_CONTINUITY\20NEW_NSOFFL_S\21NEW_NSOFFL_L\22SCHED_SCAN\24STA_KEY_CMD\25DEVICE_PS_CMD\26P2P_PS\27P2P_PS_DCM\30P2P_PS_SCM\31UAPSD_SUPPORT\32EBS\33P2P_PS_UAPSD\36BCAST_FILTERING\37GO_UAPSD\40LTE_COEX"
 
 /**
- * uCode TLV api
+ * enum iwm_ucode_tlv_api - ucode api
  * @IWM_UCODE_TLV_API_FRAGMENTED_SCAN: This ucode supports active dwell time
- *	longer than the passive one, which is essential for fragmented scan.
+ *    longer than the passive one, which is essential for fragmented scan.
  * @IWM_UCODE_TLV_API_WIFI_MCC_UPDATE: ucode supports MCC updates with source.
- * @IWM_UCODE_TLV_API_WIDE_CMD_HDR: ucode supports wide command header
  * @IWM_UCODE_TLV_API_LQ_SS_PARAMS: Configure STBC/BFER via LQ CMD ss_params
- * @IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY: scan APIs use 8-level priority
- *	instead of 3.
- * @IWM_UCODE_TLV_API_TX_POWER_CHAIN: TX power API has larger command size
- *	(command version 3) that supports per-chain limits
+ * @IWM_UCODE_TLV_API_NEW_VERSION: new versioning format
+ * @IWM_UCODE_TLV_API_SCAN_TSF_REPORT: Scan start time reported in scan
+ *    iteration complete notification, and the timestamp reported for RX
+ *    received during scan, are reported in TSF of the mac specified in the
+ *    scan request.
+ * @IWM_UCODE_TLV_API_TKIP_MIC_KEYS: This ucode supports version 2 of
+ *    ADD_MODIFY_STA_KEY_API_S_VER_2.
+ * @IWM_UCODE_TLV_API_STA_TYPE: This ucode supports station type assignement.
+ * @IWM_UCODE_TLV_API_NAN2_VER2: This ucode supports NAN API version 2
+ * @IWM_UCODE_TLV_API_NEW_RX_STATS: should new RX STATISTICS API be used
+ * @IWM_UCODE_TLV_API_QUOTA_LOW_LATENCY: Quota command includes a field
+ *    indicating low latency direction.
+ * @IWM_UCODE_TLV_API_DEPRECATE_TTAK: RX status flag TTAK ok (bit 7) is
+ *    deprecated.
+ * @IWM_UCODE_TLV_API_ADAPTIVE_DWELL_V2: This ucode supports version 8
+ *    of scan request: SCAN_REQUEST_CMD_UMAC_API_S_VER_8
+ * @IWM_UCODE_TLV_API_FRAG_EBS: This ucode supports fragmented EBS
+ * @IWM_UCODE_TLV_API_REDUCE_TX_POWER: This ucode supports v5 of
+ *    the REDUCE_TX_POWER_CMD.
+ * @IWM_UCODE_TLV_API_SHORT_BEACON_NOTIF: This ucode supports the short
+ *    version of the beacon notification.
+ * @IWM_UCODE_TLV_API_BEACON_FILTER_V4: This ucode supports v4 of
+ *    BEACON_FILTER_CONFIG_API_S_VER_4.
+ * @IWM_UCODE_TLV_API_REGULATORY_NVM_INFO: This ucode supports v4 of
+ *    REGULATORY_NVM_GET_INFO_RSP_API_S.
+ * @IWM_UCODE_TLV_API_FTM_NEW_RANGE_REQ: This ucode supports v7 of
+ *    LOCATION_RANGE_REQ_CMD_API_S and v6 of LOCATION_RANGE_RESP_NTFY_API_S.
+ * @IWM_UCODE_TLV_API_SCAN_OFFLOAD_CHANS: This ucode supports v2 of
+ *    SCAN_OFFLOAD_PROFILE_MATCH_RESULTS_S and v3 of
+ *    SCAN_OFFLOAD_PROFILES_QUERY_RSP_S.
+ * @IWM_UCODE_TLV_API_MBSSID_HE: This ucode supports v2 of
+ *    STA_CONTEXT_DOT11AX_API_S
+ * @IWM_UCODE_TLV_CAPA_SAR_TABLE_VER: This ucode supports different sar
+ *    version tables.
  *
  * @IWM_NUM_UCODE_TLV_API: number of bits used
  */
-#define IWM_UCODE_TLV_API_FRAGMENTED_SCAN	(1 << 8)
-#define IWM_UCODE_TLV_API_WIFI_MCC_UPDATE	(1 << 9)
-#define IWM_UCODE_TLV_API_WIDE_CMD_HDR		(1 << 14)
-#define IWM_UCODE_TLV_API_LQ_SS_PARAMS		(1 << 18)
-#define IWM_UCODE_TLV_API_EXT_SCAN_PRIORITY	(1 << 24)
-#define IWM_UCODE_TLV_API_TX_POWER_CHAIN	(1 << 27)
-#define IWM_UCODE_TLV_API_TKIP_MIC_KEYS         (1 << 29)
-#define IWM_NUM_UCODE_TLV_API = 32
+enum iwm_ucode_tlv_api {
+    IWM_UCODE_TLV_API_FRAGMENTED_SCAN    = 8,
+    IWM_UCODE_TLV_API_WIFI_MCC_UPDATE    = 9,
+    IWM_UCODE_TLV_API_LQ_SS_PARAMS        = 18,
+    IWM_UCODE_TLV_API_NEW_VERSION        = 20,
+    IWM_UCODE_TLV_API_SCAN_TSF_REPORT    = 28,
+    IWM_UCODE_TLV_API_TKIP_MIC_KEYS        = 29,
+    IWM_UCODE_TLV_API_STA_TYPE        = 30,
+    IWM_UCODE_TLV_API_NAN2_VER2        = 31,
+    IWM_UCODE_TLV_API_ADAPTIVE_DWELL    = 32,
+    IWM_UCODE_TLV_API_OCE            = 33,
+    IWM_UCODE_TLV_API_NEW_BEACON_TEMPLATE    = 34,
+    IWM_UCODE_TLV_API_NEW_RX_STATS        = 35,
+    IWM_UCODE_TLV_API_WOWLAN_KEY_MATERIAL    = 36,
+    IWM_UCODE_TLV_API_QUOTA_LOW_LATENCY    = 38,
+    IWM_UCODE_TLV_API_DEPRECATE_TTAK    = 41,
+    IWM_UCODE_TLV_API_ADAPTIVE_DWELL_V2    = 42,
+    IWM_UCODE_TLV_API_FRAG_EBS        = 44,
+    IWM_UCODE_TLV_API_REDUCE_TX_POWER    = 45,
+    IWM_UCODE_TLV_API_SHORT_BEACON_NOTIF    = 46,
+    IWM_UCODE_TLV_API_BEACON_FILTER_V4      = 47,
+    IWM_UCODE_TLV_API_REGULATORY_NVM_INFO   = 48,
+    IWM_UCODE_TLV_API_FTM_NEW_RANGE_REQ     = 49,
+    IWM_UCODE_TLV_API_SCAN_OFFLOAD_CHANS    = 50,
+    IWM_UCODE_TLV_API_MBSSID_HE        = 52,
+    IWM_UCODE_TLV_API_WOWLAN_TCP_SYN_WAKE    = 53,
+    IWM_UCODE_TLV_API_FTM_RTT_ACCURACY      = 54,
+    IWM_UCODE_TLV_API_SAR_TABLE_VER         = 55,
+    IWM_UCODE_TLV_API_ADWELL_HB_DEF_N_AP    = 57,
+    IWM_UCODE_TLV_API_SCAN_EXT_CHAN_VER    = 58,
+
+    IWM_NUM_UCODE_TLV_API            = 128,
+};
 
 #define IWM_UCODE_TLV_API_BITS \
 	"\020\10FRAGMENTED_SCAN\11WIFI_MCC_UPDATE\16WIDE_CMD_HDR\22LQ_SS_PARAMS\30EXT_SCAN_PRIO\33TX_POWER_CHAIN\35TKIP_MIC_KEYS"
@@ -759,6 +813,17 @@
 #define IWM_DEFAULT_MAX_PROBE_LENGTH	200
 
 /*
+ * enumeration of ucode section.
+ * This enumeration is used directly for older firmware (before 16.0).
+ * For new firmware, there can be up to 4 sections (see below) but the
+ * first one packaged into the firmware file is the DATA section and
+ * some debugging code accesses that.
+ */
+enum iwm_ucode_sec {
+    IWM_UCODE_SECTION_DATA,
+    IWM_UCODE_SECTION_INST,
+};
+/*
  * For 16.0 uCode and above, there is no differentiation between sections,
  * just an offset to the HW address.
  */
@@ -796,6 +861,36 @@ struct iwm_tlv_calib_ctrl {
 #define IWM_FW_PHY_CFG_RX_CHAIN		(0xf << IWM_FW_PHY_CFG_RX_CHAIN_POS)
 
 #define IWM_UCODE_MAX_CS		1
+
+/*
+ * Block paging calculations
+ */
+#define IWM_PAGE_2_EXP_SIZE 12 /* 4K == 2^12 */
+#define IWM_FW_PAGING_SIZE (1 << IWM_PAGE_2_EXP_SIZE) /* page size is 4KB */
+#define IWM_PAGE_PER_GROUP_2_EXP_SIZE 3
+/* 8 pages per group */
+#define IWM_NUM_OF_PAGE_PER_GROUP (1 << IWM_PAGE_PER_GROUP_2_EXP_SIZE)
+/* don't change, support only 32KB size */
+#define IWM_PAGING_BLOCK_SIZE (IWM_NUM_OF_PAGE_PER_GROUP * IWM_FW_PAGING_SIZE)
+/* 32K == 2^15 */
+#define IWM_BLOCK_2_EXP_SIZE (IWM_PAGE_2_EXP_SIZE + IWM_PAGE_PER_GROUP_2_EXP_SIZE)
+
+/*
+ * Image paging calculations
+ */
+#define IWM_BLOCK_PER_IMAGE_2_EXP_SIZE 5
+/* 2^5 == 32 blocks per image */
+#define IWM_NUM_OF_BLOCK_PER_IMAGE (1 << IWM_BLOCK_PER_IMAGE_2_EXP_SIZE)
+/* maximum image size 1024KB */
+#define IWM_MAX_PAGING_IMAGE_SIZE (IWM_NUM_OF_BLOCK_PER_IMAGE * IWM_PAGING_BLOCK_SIZE)
+
+/* Virtual address signature */
+#define IWM_PAGING_ADDR_SIG 0xAA000000
+
+#define IWM_PAGING_CMD_IS_SECURED (1 << 9)
+#define IWM_PAGING_CMD_IS_ENABLED (1 << 8)
+#define IWM_PAGING_CMD_NUM_OF_PAGES_IN_LAST_GRP_POS 0
+#define IWM_PAGING_TLV_SECURE_MASK 1
 
 /**
  * struct iwm_fw_cipher_scheme - a cipher scheme supported by FW.
@@ -1427,6 +1522,52 @@ static inline unsigned int IWM_FH_MEM_CBBC_QUEUE(unsigned int chnl)
 
 #define IWM_FH_MEM_TFDIB_REG1_ADDR_BITSHIFT	28
 
+/* 9000 rx series registers */
+
+#define IWM_RFH_Q0_FRBDCB_BA_LSB    0xa08000
+#define IWM_RFH_Q_FRBDCB_BA_LSB        (IWM_RFH_Q0_FRBDCB_BA_LSB + (q) * 8)
+/* Write index table */
+#define IWM_RFH_Q0_FRBDCB_WIDX        0xa08080
+#define IWM_RFH_Q_FRBDCB_WIDX        (IWM_RFH_Q0_FRBDCB_WIDX + (q) * 4)
+/* Write index table - shadow registers */
+#define IWM_RFH_Q0_FRBDCB_WIDX_TRG    0x1c80
+#define IWM_RFH_Q_FRBDCB_WIDX_TRG    (IWM_RFH_Q0_FRBDCB_WIDX_TRG + (q) * 4)
+/* Read index table */
+#define IWM_RFH_Q0_FRBDCB_RIDX        0xa080c0
+#define IWM_RFH_Q_FRBDCB_RIDX        (IWM_RFH_Q0_FRBDCB_RIDX + (q) * 4)
+/* Used list table */
+#define IWM_RFH_Q0_URBDCB_BA_LSB    0xa08100
+#define IWM_RFH_Q_URBDCB_BA_LSB        (IWM_RFH_Q0_URBDCB_BA_LSB + (q) * 8)
+/* Write index table */
+#define IWM_RFH_Q0_URBDCB_WIDX        0xa08180
+#define IWM_RFH_Q_URBDCB_WIDX        (IWM_RFH_Q0_URBDCB_WIDX + (q) * 4)
+/* stts */
+#define IWM_RFH_Q0_URBD_STTS_WPTR_LSB    0xa08200
+#define IWM_RFH_Q_URBD_STTS_WPTR_LSB (IWM_RFH_Q0_URBD_STTS_WPTR_LSB + (q) * 8)
+
+#define IWM_RFH_GEN_STATUS        0xa09808
+#define IWM_RXF_DMA_IDLE        0x80000000
+
+/* DMA configuration */
+#define IWM_RFH_RXF_DMA_CFG        0xa09820
+#define IWM_RFH_RXF_DMA_RB_SIZE_1K    0x00010000
+#define IWM_RFH_RXF_DMA_RB_SIZE_2K    0x00020000
+#define IWM_RFH_RXF_DMA_RB_SIZE_4K    0x00040000
+#define IWM_RFH_RXF_DMA_RBDCB_SIZE_512    0x00900000
+#define IWM_RFH_RXF_DMA_MIN_RB_4_8    0x03000000
+#define IWM_RFH_RXF_DMA_DROP_TOO_LARGE_MASK 0x04000000
+#define IWM_RFH_DMA_EN_ENABLE_VAL    0x80000000
+
+#define IWM_RFH_GEN_CFG            0xa09800
+#define IWM_RFH_GEN_CFG_SERVICE_DMA_SNOOP 0x00000001
+#define IWM_RFH_GEN_CFG_RFH_DMA_SNOOP    0x00000002
+#define IWM_RFH_GEN_CFG_RB_CHUNK_SIZE_128 0x00000010
+#define IWM_RFH_GEN_CFG_RB_CHUNK_SIZE_64 0x00000000
+
+#define IWM_RFH_RXF_RXQ_ACTIVE        0xa0980c
+
+/* end of 9000 rx series registers */
+
 /* TFDB  Area - TFDs buffer table */
 #define IWM_FH_MEM_TFDIB_DRAM_ADDR_LSB_MSK      (0xFFFFFFFF)
 #define IWM_FH_TFDIB_LOWER_BOUND       (IWM_FH_MEM_LOWER_BOUND + 0x900)
@@ -1675,151 +1816,165 @@ struct iwm_agn_scd_bc_tbl {
 /*
  * Commands
  */
-#define IWM_ALIVE		0x1
-#define IWM_REPLY_ERROR		0x2
-#define IWM_INIT_COMPLETE_NOTIF	0x4
+enum {
+    IWM_ALIVE = 0x1,
+    IWM_REPLY_ERROR = 0x2,
 
-/* PHY context commands */
-#define IWM_PHY_CONTEXT_CMD	0x8
-#define IWM_DBG_CFG		0x9
+    IWM_INIT_COMPLETE_NOTIF = 0x4,
 
-/* UMAC scan commands */
-#define IWM_SCAN_ITERATION_COMPLETE_UMAC	0xb5
-#define IWM_SCAN_CFG_CMD			0xc
-#define IWM_SCAN_REQ_UMAC			0xd
-#define IWM_SCAN_ABORT_UMAC			0xe
-#define IWM_SCAN_COMPLETE_UMAC			0xf
+    /* PHY context commands */
+    IWM_PHY_CONTEXT_CMD = 0x8,
+    IWM_DBG_CFG = 0x9,
 
-/* station table */
-#define IWM_ADD_STA_KEY	0x17
-#define IWM_ADD_STA	0x18
-#define IWM_REMOVE_STA	0x19
+    /* UMAC scan commands */
+    IWM_SCAN_ITERATION_COMPLETE_UMAC = 0xb5,
+    IWM_SCAN_CFG_CMD = 0xc,
+    IWM_SCAN_REQ_UMAC = 0xd,
+    IWM_SCAN_ABORT_UMAC = 0xe,
+    IWM_SCAN_COMPLETE_UMAC = 0xf,
 
-/* TX */
-#define IWM_TX_CMD		0x1c
-#define IWM_TXPATH_FLUSH	0x1e
-#define IWM_MGMT_MCAST_KEY	0x1f
+    /* station table */
+    IWM_ADD_STA_KEY = 0x17,
+    IWM_ADD_STA = 0x18,
+    IWM_REMOVE_STA = 0x19,
 
-/* scheduler config */
-#define IWM_SCD_QUEUE_CFG	0x1d
+    /* TX */
+    IWM_TX_CMD = 0x1c,
+    IWM_TXPATH_FLUSH = 0x1e,
+    IWM_MGMT_MCAST_KEY = 0x1f,
 
-/* global key */
-#define IWM_WEP_KEY	0x20
+    /* scheduler config */
+    IWM_SCD_QUEUE_CFG = 0x1d,
 
-/* MAC and Binding commands */
-#define IWM_MAC_CONTEXT_CMD		0x28
-#define IWM_TIME_EVENT_CMD		0x29 /* both CMD and response */
-#define IWM_TIME_EVENT_NOTIFICATION	0x2a
-#define IWM_BINDING_CONTEXT_CMD		0x2b
-#define IWM_TIME_QUOTA_CMD		0x2c
-#define IWM_NON_QOS_TX_COUNTER_CMD	0x2d
+    /* global key */
+    IWM_WEP_KEY = 0x20,
 
-#define IWM_LQ_CMD	0x4e
+    /* MAC and Binding commands */
+    IWM_MAC_CONTEXT_CMD = 0x28,
+    IWM_TIME_EVENT_CMD = 0x29, /* both CMD and response */
+    IWM_TIME_EVENT_NOTIFICATION = 0x2a,
+    IWM_BINDING_CONTEXT_CMD = 0x2b,
+    IWM_TIME_QUOTA_CMD = 0x2c,
+    IWM_NON_QOS_TX_COUNTER_CMD = 0x2d,
 
-/* Calibration */
-#define IWM_TEMPERATURE_NOTIFICATION		0x62
-#define IWM_CALIBRATION_CFG_CMD			0x65
-#define IWM_CALIBRATION_RES_NOTIFICATION	0x66
-#define IWM_CALIBRATION_COMPLETE_NOTIFICATION	0x67
-#define IWM_RADIO_VERSION_NOTIFICATION		0x68
+    IWM_LQ_CMD = 0x4e,
 
-/* Scan offload */
-#define IWM_SCAN_OFFLOAD_REQUEST_CMD		0x51
-#define IWM_SCAN_OFFLOAD_ABORT_CMD		0x52
-#define IWM_HOT_SPOT_CMD			0x53
-#define IWM_SCAN_OFFLOAD_COMPLETE		0x6d
-#define IWM_SCAN_OFFLOAD_UPDATE_PROFILES_CMD	0x6e
-#define IWM_SCAN_OFFLOAD_CONFIG_CMD		0x6f
-#define IWM_MATCH_FOUND_NOTIFICATION		0xd9
-#define IWM_SCAN_ITERATION_COMPLETE		0xe7
+    /* paging block to FW cpu2 */
+    IWM_FW_PAGING_BLOCK_CMD = 0x4f,
 
-/* Phy */
-#define IWM_PHY_CONFIGURATION_CMD		0x6a
-#define IWM_CALIB_RES_NOTIF_PHY_DB		0x6b
-/* IWM_PHY_DB_CMD	0x6c */
+    /* Scan offload */
+    IWM_SCAN_OFFLOAD_REQUEST_CMD = 0x51,
+    IWM_SCAN_OFFLOAD_ABORT_CMD = 0x52,
+    IWM_HOT_SPOT_CMD = 0x53,
+    IWM_SCAN_OFFLOAD_COMPLETE = 0x6d,
+    IWM_SCAN_OFFLOAD_UPDATE_PROFILES_CMD = 0x6e,
+    IWM_SCAN_OFFLOAD_CONFIG_CMD = 0x6f,
+    IWM_MATCH_FOUND_NOTIFICATION = 0xd9,
+    IWM_SCAN_ITERATION_COMPLETE = 0xe7,
 
-/* Power - legacy power table command */
-#define IWM_POWER_TABLE_CMD				0x77
-#define IWM_PSM_UAPSD_AP_MISBEHAVING_NOTIFICATION	0x78
+    /* Phy */
+    IWM_PHY_CONFIGURATION_CMD = 0x6a,
+    IWM_CALIB_RES_NOTIF_PHY_DB = 0x6b,
+    IWM_PHY_DB_CMD = 0x6c,
 
-/* Thermal Throttling*/
-#define IWM_REPLY_THERMAL_MNG_BACKOFF	0x7e
+    /* Power - legacy power table command */
+    IWM_POWER_TABLE_CMD = 0x77,
+    IWM_PSM_UAPSD_AP_MISBEHAVING_NOTIFICATION = 0x78,
+    IWM_LTR_CONFIG = 0xee,
 
-/* NVM */
-#define IWM_NVM_ACCESS_CMD	0x88
+    /* Thermal Throttling*/
+    IWM_REPLY_THERMAL_MNG_BACKOFF = 0x7e,
 
-#define IWM_SET_CALIB_DEFAULT_CMD	0x8e
+    /* NVM */
+    IWM_NVM_ACCESS_CMD = 0x88,
 
-#define IWM_BEACON_NOTIFICATION		0x90
-#define IWM_BEACON_TEMPLATE_CMD		0x91
-#define IWM_TX_ANT_CONFIGURATION_CMD	0x98
-#define IWM_BT_CONFIG			0x9b
-#define IWM_STATISTICS_NOTIFICATION	0x9d
-#define IWM_REDUCE_TX_POWER_CMD		0x9f
+    IWM_SET_CALIB_DEFAULT_CMD = 0x8e,
 
-/* RF-KILL commands and notifications */
-#define IWM_CARD_STATE_CMD		0xa0
-#define IWM_CARD_STATE_NOTIFICATION	0xa1
+    IWM_BEACON_NOTIFICATION = 0x90,
+    IWM_BEACON_TEMPLATE_CMD = 0x91,
+    IWM_TX_ANT_CONFIGURATION_CMD = 0x98,
+    IWM_BT_CONFIG = 0x9b,
+    IWM_STATISTICS_NOTIFICATION = 0x9d,
+    IWM_REDUCE_TX_POWER_CMD = 0x9f,
 
-#define IWM_MISSED_BEACONS_NOTIFICATION	0xa2
+    /* RF-KILL commands and notifications */
+    IWM_CARD_STATE_CMD = 0xa0,
+    IWM_CARD_STATE_NOTIFICATION = 0xa1,
 
-#define IWM_MFUART_LOAD_NOTIFICATION	0xb1
+    IWM_MISSED_BEACONS_NOTIFICATION = 0xa2,
 
-/* Power - new power table command */
-#define IWM_MAC_PM_POWER_TABLE	0xa9
+    IWM_MFUART_LOAD_NOTIFICATION = 0xb1,
 
-#define IWM_REPLY_RX_PHY_CMD	0xc0
-#define IWM_REPLY_RX_MPDU_CMD	0xc1
-#define IWM_BA_NOTIF		0xc5
+    /* Power - new power table command */
+    IWM_MAC_PM_POWER_TABLE = 0xa9,
 
-/* Location Aware Regulatory */
-#define IWM_MCC_UPDATE_CMD	0xc8
-#define IWM_MCC_CHUB_UPDATE_CMD	0xc9
+    IWM_REPLY_RX_PHY_CMD = 0xc0,
+    IWM_REPLY_RX_MPDU_CMD = 0xc1,
+    IWM_BA_NOTIF = 0xc5,
 
-/* BT Coex */
-#define IWM_BT_COEX_PRIO_TABLE	0xcc
-#define IWM_BT_COEX_PROT_ENV	0xcd
-#define IWM_BT_PROFILE_NOTIFICATION	0xce
-#define IWM_BT_COEX_CI	0x5d
+    /* Location Aware Regulatory */
+    IWM_MCC_UPDATE_CMD = 0xc8,
+    IWM_MCC_CHUB_UPDATE_CMD = 0xc9,
 
-#define IWM_REPLY_SF_CFG_CMD		0xd1
-#define IWM_REPLY_BEACON_FILTERING_CMD	0xd2
+    /* BT Coex */
+    IWM_BT_COEX_PRIO_TABLE = 0xcc,
+    IWM_BT_COEX_PROT_ENV = 0xcd,
+    IWM_BT_PROFILE_NOTIFICATION = 0xce,
+    IWM_BT_COEX_CI = 0x5d,
 
-/* DTS measurements */
-#define IWM_CMD_DTS_MEASUREMENT_TRIGGER		0xdc
-#define IWM_DTS_MEASUREMENT_NOTIFICATION	0xdd
+    IWM_REPLY_SF_CFG_CMD = 0xd1,
+    IWM_REPLY_BEACON_FILTERING_CMD = 0xd2,
 
-#define IWM_REPLY_DEBUG_CMD	0xf0
-#define IWM_DEBUG_LOG_MSG	0xf7
+    /* DTS measurements */
+    IWM_CMD_DTS_MEASUREMENT_TRIGGER = 0xdc,
+    IWM_DTS_MEASUREMENT_NOTIFICATION = 0xdd,
 
-#define IWM_MCAST_FILTER_CMD	0xd0
+    IWM_REPLY_DEBUG_CMD = 0xf0,
+    IWM_DEBUG_LOG_MSG = 0xf7,
 
-/* D3 commands/notifications */
-#define IWM_D3_CONFIG_CMD		0xd3
-#define IWM_PROT_OFFLOAD_CONFIG_CMD	0xd4
-#define IWM_OFFLOADS_QUERY_CMD		0xd5
-#define IWM_REMOTE_WAKE_CONFIG_CMD	0xd6
+    IWM_MCAST_FILTER_CMD = 0xd0,
 
-/* for WoWLAN in particular */
-#define IWM_WOWLAN_PATTERNS		0xe0
-#define IWM_WOWLAN_CONFIGURATION	0xe1
-#define IWM_WOWLAN_TSC_RSC_PARAM	0xe2
-#define IWM_WOWLAN_TKIP_PARAM		0xe3
-#define IWM_WOWLAN_KEK_KCK_MATERIAL	0xe4
-#define IWM_WOWLAN_GET_STATUSES		0xe5
-#define IWM_WOWLAN_TX_POWER_PER_DB	0xe6
+    /* D3 commands/notifications */
+    IWM_D3_CONFIG_CMD = 0xd3,
+    IWM_PROT_OFFLOAD_CONFIG_CMD = 0xd4,
+    IWM_OFFLOADS_QUERY_CMD = 0xd5,
+    IWM_REMOTE_WAKE_CONFIG_CMD = 0xd6,
 
-/* and for NetDetect */
-#define IWM_NET_DETECT_CONFIG_CMD		0x54
-#define IWM_NET_DETECT_PROFILES_QUERY_CMD	0x56
-#define IWM_NET_DETECT_PROFILES_CMD		0x57
-#define IWM_NET_DETECT_HOTSPOTS_CMD		0x58
-#define IWM_NET_DETECT_HOTSPOTS_QUERY_CMD	0x59
+    /* for WoWLAN in particular */
+    IWM_WOWLAN_PATTERNS = 0xe0,
+    IWM_WOWLAN_CONFIGURATION = 0xe1,
+    IWM_WOWLAN_TSC_RSC_PARAM = 0xe2,
+    IWM_WOWLAN_TKIP_PARAM = 0xe3,
+    IWM_WOWLAN_KEK_KCK_MATERIAL = 0xe4,
+    IWM_WOWLAN_GET_STATUSES = 0xe5,
+    IWM_WOWLAN_TX_POWER_PER_DB = 0xe6,
 
-/* system group command IDs */
-#define IWM_FSEQ_VER_MISMATCH_NOTIFICATION	0xff
+    /* and for NetDetect */
+    IWM_NET_DETECT_CONFIG_CMD = 0x54,
+    IWM_NET_DETECT_PROFILES_QUERY_CMD = 0x56,
+    IWM_NET_DETECT_PROFILES_CMD = 0x57,
+    IWM_NET_DETECT_HOTSPOTS_CMD = 0x58,
+    IWM_NET_DETECT_HOTSPOTS_QUERY_CMD = 0x59,
+};
 
-#define IWM_REPLY_MAX	0xff
+enum iwm_phy_ops_subcmd_ids {
+    IWM_CMD_DTS_MEASUREMENT_TRIGGER_WIDE = 0x0,
+    IWM_CTDP_CONFIG_CMD = 0x03,
+    IWM_TEMP_REPORTING_THRESHOLDS_CMD = 0x04,
+    IWM_CT_KILL_NOTIFICATION = 0xFE,
+    IWM_DTS_MEASUREMENT_NOTIF_WIDE = 0xFF,
+};
+
+/* command groups */
+enum {
+    IWM_LEGACY_GROUP = 0x0,
+    IWM_LONG_GROUP = 0x1,
+    IWM_SYSTEM_GROUP = 0x2,
+    IWM_MAC_CONF_GROUP = 0x3,
+    IWM_PHY_OPS_GROUP = 0x4,
+    IWM_DATA_PATH_GROUP = 0x5,
+    IWM_PROT_OFFLOAD_GROUP = 0xb,
+};
 
 /**
  * struct iwm_cmd_response - generic response struct for most commands
@@ -1909,12 +2064,14 @@ struct iwm_phy_cfg_cmd {
  * PHY db
  */
 
-#define IWM_PHY_DB_CFG 			1
-#define IWM_PHY_DB_CALIB_NCH		2
-#define IWM_PHY_DB_UNUSED		3
-#define IWM_PHY_DB_CALIB_CHG_PAPD	4
-#define IWM_PHY_DB_CALIB_CHG_TXP	5
-#define IWM_PHY_DB_MAX			6
+enum iwm_phy_db_section_type {
+    IWM_PHY_DB_CFG = 1,
+    IWM_PHY_DB_CALIB_NCH,
+    IWM_PHY_DB_UNUSED,
+    IWM_PHY_DB_CALIB_CHG_PAPD,
+    IWM_PHY_DB_CALIB_CHG_TXP,
+    IWM_PHY_DB_MAX
+};
 
 #define IWM_PHY_DB_CMD 0x6c /* TEMP API - The actual is 0x8c */
 
@@ -2062,6 +2219,44 @@ struct iwm_nvm_access_cmd {
 	uint8_t data[];
 } __packed; /* IWM_NVM_ACCESS_CMD_API_S_VER_2 */
 
+#define IWM_NUM_OF_FW_PAGING_BLOCKS 33 /* 32 for data and 1 block for CSS */
+
+/*
+ * struct iwm_fw_paging_cmd - paging layout
+ *
+ * (IWM_FW_PAGING_BLOCK_CMD = 0x4f)
+ *
+ * Send to FW the paging layout in the driver.
+ *
+ * @flags: various flags for the command
+ * @block_size: the block size in powers of 2
+ * @block_num: number of blocks specified in the command.
+ * @device_phy_addr: virtual addresses from device side
+*/
+struct iwm_fw_paging_cmd {
+    uint32_t flags;
+    uint32_t block_size;
+    uint32_t block_num;
+    uint32_t device_phy_addr[IWM_NUM_OF_FW_PAGING_BLOCKS];
+} __packed; /* IWM_FW_PAGING_BLOCK_CMD_API_S_VER_1 */
+
+/*
+ * Fw items ID's
+ *
+ * @IWM_FW_ITEM_ID_PAGING: Address of the pages that the FW will upload
+ *      download
+ */
+enum iwm_fw_item_id {
+    IWM_FW_ITEM_ID_PAGING = 3,
+};
+
+/*
+ * struct iwm_fw_get_item_cmd - get an item from the fw
+ */
+struct iwm_fw_get_item_cmd {
+    uint32_t item_id;
+} __packed; /* IWM_FW_GET_ITEM_CMD_API_S_VER_1 */
+
 /**
  * struct iwm_nvm_access_resp_ver2 - response to IWM_NVM_ACCESS_CMD
  * @offset: offset in bytes into the section
@@ -2081,106 +2276,74 @@ struct iwm_nvm_access_resp {
 /* IWM_ALIVE 0x1 */
 
 /* alive response is_valid values */
-#define IWM_ALIVE_RESP_UCODE_OK	(1 << 0)
-#define IWM_ALIVE_RESP_RFKILL	(1 << 1)
+#define IWM_ALIVE_RESP_UCODE_OK    (1 << 0)
+#define IWM_ALIVE_RESP_RFKILL    (1 << 1)
 
 /* alive response ver_type values */
-#define IWM_FW_TYPE_HW		0
-#define IWM_FW_TYPE_PROT	1
-#define IWM_FW_TYPE_AP		2
-#define IWM_FW_TYPE_WOWLAN	3
-#define IWM_FW_TYPE_TIMING	4
-#define IWM_FW_TYPE_WIPAN	5
+enum {
+    IWM_FW_TYPE_HW = 0,
+    IWM_FW_TYPE_PROT = 1,
+    IWM_FW_TYPE_AP = 2,
+    IWM_FW_TYPE_WOWLAN = 3,
+    IWM_FW_TYPE_TIMING = 4,
+    IWM_FW_TYPE_WIPAN = 5
+};
 
 /* alive response ver_subtype values */
-#define IWM_FW_SUBTYPE_FULL_FEATURE	0
-#define IWM_FW_SUBTYPE_BOOTSRAP		1 /* Not valid */
-#define IWM_FW_SUBTYPE_REDUCED		2
-#define IWM_FW_SUBTYPE_ALIVE_ONLY	3
-#define IWM_FW_SUBTYPE_WOWLAN		4
-#define IWM_FW_SUBTYPE_AP_SUBTYPE	5
-#define IWM_FW_SUBTYPE_WIPAN		6
-#define IWM_FW_SUBTYPE_INITIALIZE	9
+enum {
+    IWM_FW_SUBTYPE_FULL_FEATURE = 0,
+    IWM_FW_SUBTYPE_BOOTSRAP = 1, /* Not valid */
+    IWM_FW_SUBTYPE_REDUCED = 2,
+    IWM_FW_SUBTYPE_ALIVE_ONLY = 3,
+    IWM_FW_SUBTYPE_WOWLAN = 4,
+    IWM_FW_SUBTYPE_AP_SUBTYPE = 5,
+    IWM_FW_SUBTYPE_WIPAN = 6,
+    IWM_FW_SUBTYPE_INITIALIZE = 9
+};
 
 #define IWM_ALIVE_STATUS_ERR 0xDEAD
 #define IWM_ALIVE_STATUS_OK 0xCAFE
 
-#define IWM_ALIVE_FLG_RFKILL	(1 << 0)
+#define IWM_ALIVE_FLG_RFKILL    (1 << 0)
 
-struct iwm_alive_resp_v1 {
-	uint16_t status;
-	uint16_t flags;
-	uint8_t ucode_minor;
-	uint8_t ucode_major;
-	uint16_t id;
-	uint8_t api_minor;
-	uint8_t api_major;
-	uint8_t ver_subtype;
-	uint8_t ver_type;
-	uint8_t mac;
-	uint8_t opt;
-	uint16_t reserved2;
-	uint32_t timestamp;
-	uint32_t error_event_table_ptr;	/* SRAM address for error log */
-	uint32_t log_event_table_ptr;	/* SRAM address for event log */
-	uint32_t cpu_register_ptr;
-	uint32_t dbgm_config_ptr;
-	uint32_t alive_counter_ptr;
-	uint32_t scd_base_ptr;		/* SRAM address for SCD */
-} __packed; /* IWM_ALIVE_RES_API_S_VER_1 */
+struct iwm_lmac_alive {
+    uint32_t ucode_major;
+    uint32_t ucode_minor;
+    uint8_t ver_subtype;
+    uint8_t ver_type;
+    uint8_t mac;
+    uint8_t opt;
+    uint32_t timestamp;
+    uint32_t error_event_table_ptr;    /* SRAM address for error log */
+    uint32_t log_event_table_ptr;    /* SRAM address for LMAC event log */
+    uint32_t cpu_register_ptr;
+    uint32_t dbgm_config_ptr;
+    uint32_t alive_counter_ptr;
+    uint32_t scd_base_ptr;        /* SRAM address for SCD */
+    uint32_t st_fwrd_addr;        /* pointer to Store and forward */
+    uint32_t st_fwrd_size;
+} __packed; /* UCODE_ALIVE_NTFY_API_S_VER_3 */
 
-struct iwm_alive_resp_v2 {
-	uint16_t status;
-	uint16_t flags;
-	uint8_t ucode_minor;
-	uint8_t ucode_major;
-	uint16_t id;
-	uint8_t api_minor;
-	uint8_t api_major;
-	uint8_t ver_subtype;
-	uint8_t ver_type;
-	uint8_t mac;
-	uint8_t opt;
-	uint16_t reserved2;
-	uint32_t timestamp;
-	uint32_t error_event_table_ptr;	/* SRAM address for error log */
-	uint32_t log_event_table_ptr;	/* SRAM address for LMAC event log */
-	uint32_t cpu_register_ptr;
-	uint32_t dbgm_config_ptr;
-	uint32_t alive_counter_ptr;
-	uint32_t scd_base_ptr;		/* SRAM address for SCD */
-	uint32_t st_fwrd_addr;		/* pointer to Store and forward */
-	uint32_t st_fwrd_size;
-	uint8_t umac_minor;			/* UMAC version: minor */
-	uint8_t umac_major;			/* UMAC version: major */
-	uint16_t umac_id;			/* UMAC version: id */
-	uint32_t error_info_addr;		/* SRAM address for UMAC error log */
-	uint32_t dbg_print_buff_addr;
-} __packed; /* ALIVE_RES_API_S_VER_2 */
+struct iwm_umac_alive {
+    uint32_t umac_major;        /* UMAC version: major */
+    uint32_t umac_minor;        /* UMAC version: minor */
+    uint32_t error_info_addr;    /* SRAM address for UMAC error log */
+    uint32_t dbg_print_buff_addr;
+} __packed; /* UMAC_ALIVE_DATA_API_S_VER_2 */
 
 struct iwm_alive_resp_v3 {
-	uint16_t status;
-	uint16_t flags;
-	uint32_t ucode_minor;
-	uint32_t ucode_major;
-	uint8_t ver_subtype;
-	uint8_t ver_type;
-	uint8_t mac;
-	uint8_t opt;
-	uint32_t timestamp;
-	uint32_t error_event_table_ptr;	/* SRAM address for error log */
-	uint32_t log_event_table_ptr;	/* SRAM address for LMAC event log */
-	uint32_t cpu_register_ptr;
-	uint32_t dbgm_config_ptr;
-	uint32_t alive_counter_ptr;
-	uint32_t scd_base_ptr;		/* SRAM address for SCD */
-	uint32_t st_fwrd_addr;		/* pointer to Store and forward */
-	uint32_t st_fwrd_size;
-	uint32_t umac_minor;		/* UMAC version: minor */
-	uint32_t umac_major;		/* UMAC version: major */
-	uint32_t error_info_addr;		/* SRAM address for UMAC error log */
-	uint32_t dbg_print_buff_addr;
+    uint16_t status;
+    uint16_t flags;
+    struct iwm_lmac_alive lmac_data;
+    struct iwm_umac_alive umac_data;
 } __packed; /* ALIVE_RES_API_S_VER_3 */
+
+struct iwm_alive_resp {
+    uint16_t status;
+    uint16_t flags;
+    struct iwm_lmac_alive lmac_data[2];
+    struct iwm_umac_alive umac_data;
+} __packed; /* ALIVE_RES_API_S_VER_4 */
 
 /* Error response/notification */
 #define IWM_FW_ERR_UNKNOWN_CMD		0x0
@@ -5756,28 +5919,56 @@ struct iwm_mcc_chub_notif {
 	uint8_t reserved1;
 } __packed; /* LAR_MCC_NOTIFY_S */
 
-#define IWM_MCC_RESP_NEW_CHAN_PROFILE			0
-#define IWM_MCC_RESP_SAME_CHAN_PROFILE			1
-#define IWM_MCC_RESP_INVALID				2
-#define IWM_MCC_RESP_NVM_DISABLED			3
-#define IWM_MCC_RESP_ILLEGAL				4
-#define IWM_MCC_RESP_LOW_PRIORITY			5
-#define IWM_MCC_RESP_TEST_MODE_ACTIVE			6
-#define IWM_MCC_RESP_TEST_MODE_NOT_ACTIVE		7
-#define IWM_MCC_RESP_TEST_MODE_DENIAL_OF_SERVICE	8
+enum iwm_mcc_update_status {
+    IWM_MCC_RESP_NEW_CHAN_PROFILE,
+    IWM_MCC_RESP_SAME_CHAN_PROFILE,
+    IWM_MCC_RESP_INVALID,
+    IWM_MCC_RESP_NVM_DISABLED,
+    IWM_MCC_RESP_ILLEGAL,
+    IWM_MCC_RESP_LOW_PRIORITY,
+    IWM_MCC_RESP_TEST_MODE_ACTIVE,
+    IWM_MCC_RESP_TEST_MODE_NOT_ACTIVE,
+    IWM_MCC_RESP_TEST_MODE_DENIAL_OF_SERVICE,
+};
 
-#define IWM_MCC_SOURCE_OLD_FW			0
-#define IWM_MCC_SOURCE_ME			1
-#define IWM_MCC_SOURCE_BIOS			2
-#define IWM_MCC_SOURCE_3G_LTE_HOST		3
-#define IWM_MCC_SOURCE_3G_LTE_DEVICE		4
-#define IWM_MCC_SOURCE_WIFI			5
-#define IWM_MCC_SOURCE_RESERVED			6
-#define IWM_MCC_SOURCE_DEFAULT			7
-#define IWM_MCC_SOURCE_UNINITIALIZED		8
-#define IWM_MCC_SOURCE_MCC_API			9
-#define IWM_MCC_SOURCE_GET_CURRENT		0x10
-#define IWM_MCC_SOURCE_GETTING_MCC_TEST_MODE	0x11
+enum iwm_mcc_source {
+    IWM_MCC_SOURCE_OLD_FW = 0,
+    IWM_MCC_SOURCE_ME = 1,
+    IWM_MCC_SOURCE_BIOS = 2,
+    IWM_MCC_SOURCE_3G_LTE_HOST = 3,
+    IWM_MCC_SOURCE_3G_LTE_DEVICE = 4,
+    IWM_MCC_SOURCE_WIFI = 5,
+    IWM_MCC_SOURCE_RESERVED = 6,
+    IWM_MCC_SOURCE_DEFAULT = 7,
+    IWM_MCC_SOURCE_UNINITIALIZED = 8,
+    IWM_MCC_SOURCE_MCC_API = 9,
+    IWM_MCC_SOURCE_GET_CURRENT = 0x10,
+    IWM_MCC_SOURCE_GETTING_MCC_TEST_MODE = 0x11,
+};
+
+/**
+ * struct iwm_dts_measurement_notif_v1 - measurements notification
+ *
+ * @temp: the measured temperature
+ * @voltage: the measured voltage
+ */
+struct iwm_dts_measurement_notif_v1 {
+    int32_t temp;
+    int32_t voltage;
+} __packed; /* TEMPERATURE_MEASUREMENT_TRIGGER_NTFY_S_VER_1*/
+
+/**
+ * struct iwm_dts_measurement_notif_v2 - measurements notification
+ *
+ * @temp: the measured temperature
+ * @voltage: the measured voltage
+ * @threshold_idx: the trip index that was crossed
+ */
+struct iwm_dts_measurement_notif_v2 {
+    int32_t temp;
+    int32_t voltage;
+    int32_t threshold_idx;
+} __packed; /* TEMPERATURE_MEASUREMENT_TRIGGER_NTFY_S_VER_2 */
 
 /*
  * Some cherry-picked definitions

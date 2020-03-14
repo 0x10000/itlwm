@@ -107,6 +107,9 @@
 #include "ieee80211_amrr.h"
 #include "ieee80211_mira.h"
 #include "ieee80211_radiotap.h"
+#include "devices.hpp"
+#include <sys/types.h>
+#include "if_iwm_notif_wait.h"
 
 #include <IOKit/network/IOMbufMemoryCursor.h>
 
@@ -144,7 +147,7 @@ struct iwm_tx_radiotap_header {
 	 (1 << IEEE80211_RADIOTAP_CHANNEL) |				\
 	 (1 << IEEE80211_RADIOTAP_HWQUEUE))
 
-#define IWM_UCODE_SECT_MAX 16
+#define IWM_UCODE_SECTION_MAX 16
 #define IWM_FWDMASEGSZ (192*1024)
 #define IWM_FWDMASEGSZ_8000 (320*1024)
 /* sanity check value */
@@ -160,23 +163,32 @@ struct iwm_tx_radiotap_header {
 #define IWM_FW_STATUS_DONE		2
 
 enum iwm_ucode_type {
-	IWM_UCODE_TYPE_REGULAR,
-	IWM_UCODE_TYPE_INIT,
-	IWM_UCODE_TYPE_WOW,
-	IWM_UCODE_TYPE_REGULAR_USNIFFER,
+	IWM_UCODE_REGULAR,
+	IWM_UCODE_INIT,
+	IWM_UCODE_WOWLAN,
+	IWM_UCODE_REGULAR_USNIFFER,
 	IWM_UCODE_TYPE_MAX
 };
 
-struct iwm_fw_onesect {
-    void *fws_data;
-    uint32_t fws_len;
-    uint32_t fws_devoff;
+struct iwm_ucode_capabilities {
+    uint32_t max_probe_length;
+    uint32_t n_scan_channels;
+    uint32_t flags;
+    uint8_t enabled_api[howmany(IWM_NUM_UCODE_TLV_API, NBBY)];
+    uint8_t enabled_capa[howmany(IWM_NUM_UCODE_TLV_CAPA, NBBY)];
 };
 
-struct iwm_fw_sects {
-    struct iwm_fw_onesect fw_sect[IWM_UCODE_SECT_MAX];
-    size_t fw_totlen;
+struct iwm_fw_desc {
+    void *data;
+    uint32_t len;
+    uint32_t offset;
+};
+
+struct iwm_fw_img {
+    struct iwm_fw_desc sec[IWM_UCODE_SECTION_MAX];
     int fw_count;
+    int is_dual_cpus;
+    uint32_t paging_mem_size;
 };
 
 struct iwm_fw_info {
@@ -184,7 +196,13 @@ struct iwm_fw_info {
 	size_t fw_rawsize;
 	int fw_status;
 
-	struct iwm_fw_sects fw_sects[IWM_UCODE_TYPE_MAX];
+	struct iwm_fw_img img[IWM_UCODE_TYPE_MAX];
+    
+    struct iwm_ucode_capabilities ucode_capa;
+    
+    uint32_t phy_config;
+    uint8_t valid_tx_ant;
+    uint8_t valid_rx_ant;
 };
 
 struct iwm_nvm_data {
@@ -244,6 +262,16 @@ struct iwm_dma_info {
     bus_size_t        size;
 };
 
+/**
+ * struct iwm_fw_paging
+ * @fw_paging_block: dma memory info
+ * @fw_paging_size: page size
+ */
+struct iwm_fw_paging {
+    struct iwm_dma_info fw_paging_block;
+    uint32_t fw_paging_size;
+};
+
 #define IWM_TX_RING_COUNT	256
 #define IWM_TX_RING_LOMARK	192
 #define IWM_TX_RING_HIMARK	224
@@ -268,7 +296,10 @@ struct iwm_tx_ring {
 	int			cur;
 };
 
-#define IWM_RX_RING_COUNT	256
+#define IWM_RX_LEGACY_RING_COUNT    256
+#define IWM_RX_MQ_RING_COUNT        512
+
+#define IWM_RX_RING_COUNT	256//deprecated use mq instead.zxy
 #define IWM_RBUF_COUNT		(IWM_RX_RING_COUNT + 32)
 /* Linux driver optionally uses 8k buffer */
 #define IWM_RBUF_SIZE		4096
@@ -279,12 +310,15 @@ struct iwm_rx_data {
 };
 
 struct iwm_rx_ring {
-	struct iwm_dma_info	desc_dma;
+	struct iwm_dma_info	free_desc_dma;
+    struct iwm_dma_info used_desc_dma;
 	struct iwm_dma_info	stat_dma;
 	struct iwm_dma_info	buf_dma;
 	uint32_t		*desc;
 	struct iwm_rb_status	*stat;
-	struct iwm_rx_data	data[IWM_RX_RING_COUNT];
+	struct iwm_rx_data	data[IWM_RX_MQ_RING_COUNT];
+    bus_dmamap_t        spare_map;    /* for iwm_rx_addbuf() */
+    bus_dma_tag_t           data_dmat;
 	int			cur;
 };
 
@@ -298,15 +332,6 @@ struct iwm_rx_ring {
 #define IWM_FLAG_HW_ERR		0x80	/* hardware error occurred */
 #define IWM_FLAG_SHUTDOWN	0x100	/* shutting down; new tasks forbidden */
 #define IWM_FLAG_BGSCAN		0x200	/* background scan in progress */
-
-struct iwm_ucode_status {
-	uint32_t uc_error_event_table;
-	uint32_t uc_umac_error_event_table;
-	uint32_t uc_log_event_table;
-
-	int uc_ok;
-	int uc_intr;
-};
 
 #define IWM_CMD_RESP_MAX PAGE_SIZE
 
@@ -338,8 +363,12 @@ struct iwm_phy_db_entry {
 struct iwm_phy_db {
 	struct iwm_phy_db_entry	cfg;
 	struct iwm_phy_db_entry	calib_nch;
-	struct iwm_phy_db_entry	calib_ch_group_papd[IWM_NUM_PAPD_CH_GROUPS];
-	struct iwm_phy_db_entry	calib_ch_group_txp[IWM_NUM_TXP_CH_GROUPS];
+    int n_group_papd;
+	struct iwm_phy_db_entry *calib_ch_group_papd;
+    int n_group_txp;
+	struct iwm_phy_db_entry *calib_ch_group_txp;
+    
+    struct iwm_softc *sc;
 };
 
 struct iwm_phy_ctxt {
@@ -362,6 +391,8 @@ struct iwm_softc {
 	int (*sc_newstate)(struct ieee80211com *, enum ieee80211_state, int);
 	int sc_newstate_pending;
 
+    struct mtx        sc_mtx;
+    
 	struct ieee80211_amrr sc_amrr;
 	CTimeout *sc_calib_to;
 	CTimeout *sc_led_blink_to;
@@ -392,7 +423,7 @@ struct iwm_softc {
 
 	/* TX scheduler rings. */
 	struct iwm_dma_info		sched_dma;
-	uint32_t			sched_base;
+	uint32_t			scd_base_addr;
 
 	/* TX/RX rings. */
 	struct iwm_tx_ring txq[IWM_MAX_QUEUES];
@@ -412,8 +443,6 @@ struct iwm_softc {
 #define IWM_SILICON_D_STEP	3
 	int sc_hw_id;
 	int sc_device_family;
-#define IWM_DEVICE_FAMILY_7000	1
-#define IWM_DEVICE_FAMILY_8000	2
 
 	struct iwm_dma_info kw_dma;
 	struct iwm_dma_info fw_dma;
@@ -423,16 +452,25 @@ struct iwm_softc {
 #define IWM_INIT_COMPLETE	0x01
 #define IWM_CALIB_COMPLETE	0x02
 
-	struct iwm_ucode_status sc_uc;
-	enum iwm_ucode_type sc_uc_current;
+	enum iwm_ucode_type cur_ucode;
+    int ucode_loaded;
 	char sc_fwver[32];
+    char sc_fw_mcc[3];
+    /* Firmware status */
+    uint32_t        error_event_table[2];
+    uint32_t        log_event_table;
+    uint32_t        umac_error_event_table;
+    int            support_umac_log;
+    
+    /*
+     * Paging parameters - All of the parameters should be set by the
+     * opmode when paging is enabled
+     */
+    struct iwm_fw_paging    fw_paging_db[IWM_NUM_OF_FW_PAGING_BLOCKS];
+    uint16_t        num_of_paging_blk;
+    uint16_t        num_of_pages_in_last_blk;
 
-	int sc_capaflags;
-	int sc_capa_max_probe_len;
-	int sc_capa_n_scan_channels;
 	uint32_t sc_ucode_api;
-	uint8_t sc_enabled_capa[howmany(IWM_NUM_UCODE_TLV_CAPA, NBBY)];
-	char sc_fw_mcc[3];
 
 	int sc_intmask;
 	int sc_flags;
@@ -455,11 +493,12 @@ struct iwm_softc {
 	const char *sc_fwname;
 	bus_size_t sc_fwdmasegsz;
 	struct iwm_fw_info sc_fw;
-	int sc_fw_phy_config;
 	struct iwm_tlv_calib_ctrl sc_default_calib[IWM_UCODE_TYPE_MAX];
 
-	struct iwm_nvm_data sc_nvm;
-	struct iwm_phy_db sc_phy_db;
+    struct iwm_nvm_data *nvm_data;
+	struct iwm_phy_db *sc_phy_db;
+    
+    const struct iwm_cfg    *cfg;
 
 	struct iwm_bf_data sc_bf;
 
@@ -509,6 +548,9 @@ struct iwm_softc {
 #define sc_txtap	sc_txtapu.th
 	int			sc_txtap_len;
 #endif
+    
+    struct iwm_notif_wait_data *sc_notif_wait;
+    int            cmd_hold_nic_awake;
 };
 
 struct iwm_node {
@@ -532,6 +574,13 @@ struct iwm_node {
 #define IWM_ICT_COUNT		(IWM_ICT_SIZE / sizeof (uint32_t))
 #define IWM_ICT_PADDR_SHIFT	12
 
+#define IWM_LOCK_INIT(_sc) \
+    mtx_init(&(_sc)->sc_mtx, "iwm_soft", \
+        0, 0);
+#define    IWM_LOCK(_sc)        mtx_lock(&(_sc)->sc_mtx)
+#define    IWM_UNLOCK(_sc)        mtx_unlock(&(_sc)->sc_mtx)
+#define IWM_LOCK_DESTROY(_sc)    mtx_destroy(&(_sc)->sc_mtx)
+
 struct pci_matchid {
     int        pm_vid;
     int    pm_pid;
@@ -548,4 +597,16 @@ pci_matchbyid(int vid, int pid, const struct pci_matchid *ids, int nent)
             pid == pm->pm_pid)
             return (1);
     return (0);
+}
+
+static inline bool
+iwm_fw_has_api(struct iwm_softc *sc, unsigned int api)
+{
+    return isset(sc->sc_fw.ucode_capa.enabled_api, api);
+}
+
+static inline bool
+iwm_fw_has_capa(struct iwm_softc *sc, unsigned int capa)
+{
+    return isset(sc->sc_fw.ucode_capa.enabled_capa, capa);
 }
