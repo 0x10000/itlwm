@@ -40,6 +40,72 @@ iwm_phy_db_get_section(struct iwm_phy_db *phy_db,
 }
 
 int itlwm::
+iwm_phy_db_set_section(struct iwm_phy_db *phy_db,
+               struct iwm_rx_packet *pkt)
+{
+    struct iwm_calib_res_notif_phy_db *phy_db_notif =
+            (struct iwm_calib_res_notif_phy_db *)pkt->data;
+    enum iwm_phy_db_section_type type = (enum iwm_phy_db_section_type)le16toh(phy_db_notif->type);
+        uint16_t size  = le16toh(phy_db_notif->length);
+        struct iwm_phy_db_entry *entry;
+        uint16_t chg_id = 0;
+
+    if (!phy_db)
+        return EINVAL;
+
+    if (type == IWM_PHY_DB_CALIB_CHG_PAPD) {
+        chg_id = le16toh(*(uint16_t *)phy_db_notif->data);
+        if (phy_db && !phy_db->calib_ch_group_papd) {
+            /*
+             * Firmware sends the largest index first, so we can use
+             * it to know how much we should allocate.
+             */
+            phy_db->calib_ch_group_papd = (struct iwm_phy_db_entry *)malloc(
+                (chg_id + 1) * sizeof(struct iwm_phy_db_entry), 0, 0);
+            if (!phy_db->calib_ch_group_papd)
+                return ENOMEM;
+            memset(phy_db->calib_ch_group_papd, 0, (chg_id + 1) * sizeof(struct iwm_phy_db_entry));
+            phy_db->n_group_papd = chg_id + 1;
+        }
+    } else if (type == IWM_PHY_DB_CALIB_CHG_TXP) {
+        chg_id = le16toh(*(uint16_t *)phy_db_notif->data);
+        if (phy_db && !phy_db->calib_ch_group_txp) {
+            /*
+             * Firmware sends the largest index first, so we can use
+             * it to know how much we should allocate.
+             */
+            phy_db->calib_ch_group_txp = (struct iwm_phy_db_entry *)malloc(
+                (chg_id + 1) * sizeof(struct iwm_phy_db_entry),
+                0, M_NOWAIT | M_ZERO);
+            if (!phy_db->calib_ch_group_txp)
+                return ENOMEM;
+            memset(phy_db->calib_ch_group_txp, 0, (chg_id + 1) * sizeof(struct iwm_phy_db_entry));
+            phy_db->n_group_txp = chg_id + 1;
+        }
+    }
+
+    entry = iwm_phy_db_get_section(phy_db, type, chg_id);
+    if (!entry)
+        return EINVAL;
+
+    if (entry->data != NULL)
+        free(entry->data);
+    entry->data = (uint8_t*)malloc(size, 0, M_NOWAIT);
+    if (!entry->data) {
+        entry->size = 0;
+        return ENOMEM;
+    }
+    memcpy(entry->data, phy_db_notif->data, size);
+
+    entry->size = size;
+
+    XYLog("%s(%d): [PHYDB]SET: Type %d , Size: %d\n",
+            __func__, __LINE__, type, size);
+
+    return 0;
+}
+
+int itlwm::
 iwm_phy_db_get_section_data(struct iwm_phy_db *phy_db,
                             uint32_t type, uint8_t **data, uint16_t *size,
                             uint16_t ch_id)

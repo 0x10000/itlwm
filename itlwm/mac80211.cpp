@@ -2689,220 +2689,218 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
             iwm_rx_rx_phy_cmd(sc, pkt);
             break;
 
-        case IWM_REPLY_RX_MPDU_CMD: {
-            /*
-             * If this is the last frame in the RX buffer, we
-             * can directly feed the mbuf to the sharks here.
-             */
-            struct iwm_rx_packet *nextpkt = mtodoff(m,
-                struct iwm_rx_packet *, nextoff);
-            if (!HAVEROOM(nextoff) ||
-                (nextpkt->hdr.code == 0 &&
-                 (nextpkt->hdr.qid & ~0x80) == 0 &&
-                 nextpkt->hdr.idx == 0) ||
-                (nextpkt->len_n_flags ==
-                 htole32(IWM_FH_RSCSR_FRAME_INVALID))) {
-                if ( iwm_rx_mpdu(sc, m, offset, stolen)) {
-                    stolen = FALSE;
-                    /* Make sure we abort the loop */
-                    nextoff = maxoff;
-                }
-                break;
-            }
-
-            /*
-             * Use m_copym instead of m_split, because that
-             * makes it easier to keep a valid rx buffer in
-             * the ring, when iwm_rx_mpdu() fails.
-             *
-             * We need to start m_copym() at offset 0, to get the
-             * M_PKTHDR flag preserved.
-             */
-            m1 = m_copym(m, 0, M_COPYALL, M_NOWAIT);
-            if (m1) {
-                if (iwm_rx_mpdu(sc, m1, offset, stolen))
-                    stolen = TRUE;
-                else
-                    mbuf_freem(m1);
-            }
-            break;
-        }
-
-        case IWM_TX_CMD:
-            iwm_rx_tx_cmd(sc, pkt);
-            break;
-
-        case IWM_MISSED_BEACONS_NOTIFICATION: {
-            struct iwm_missed_beacons_notif *resp;
-            int missed;
-
-            /* XXX look at mac_id to determine interface ID */
-//            struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
-
-            resp = (struct iwm_missed_beacons_notif *)pkt->data;
-            missed = le32toh(resp->consec_missed_beacons);
-
-            XYLog("%s: MISSED_BEACON: mac_id=%d, "
-                "consec_since_last_rx=%d, consec=%d, num_expect=%d "
-                "num_rx=%d\n",
-                __func__,
-                le32toh(resp->mac_id),
-                le32toh(resp->consec_missed_beacons_since_last_rx),
-                le32toh(resp->consec_missed_beacons),
-                le32toh(resp->num_expected_beacons),
-                le32toh(resp->num_recvd_beacons));
-
-//            /* Be paranoid */
-//            if (vap == NULL)
-//                break;
-//
-//            /* XXX no net80211 locking? */
-//            if (vap->iv_state == IEEE80211_S_RUN &&
-//                (ic->ic_flags & IEEE80211_F_SCAN) == 0) {
-//                if (missed > vap->iv_bmissthreshold) {
-//                    /* XXX bad locking; turn into task */
-//                    IWM_UNLOCK(sc);
-//                    ieee80211_beacon_miss(ic);
-//                    IWM_LOCK(sc);
+//        case IWM_REPLY_RX_MPDU_CMD: {
+//            /*
+//             * If this is the last frame in the RX buffer, we
+//             * can directly feed the mbuf to the sharks here.
+//             */
+//            struct iwm_rx_packet *nextpkt = mtodoff(m,
+//                struct iwm_rx_packet *, nextoff);
+//            if (!HAVEROOM(nextoff) ||
+//                (nextpkt->hdr.code == 0 &&
+//                 (nextpkt->hdr.qid & ~0x80) == 0 &&
+//                 nextpkt->hdr.idx == 0) ||
+//                (nextpkt->len_n_flags ==
+//                 htole32(IWM_FH_RSCSR_FRAME_INVALID))) {
+//                if ( iwm_rx_mpdu(sc, m, offset, stolen)) {
+//                    stolen = FALSE;
+//                    /* Make sure we abort the loop */
+//                    nextoff = maxoff;
 //                }
+//                break;
 //            }
-
-            break;
-        }
-
-        case IWM_MFUART_LOAD_NOTIFICATION:
-            break;
-
-        case IWM_ALIVE:
-            break;
-
-        case IWM_CALIB_RES_NOTIF_PHY_DB:
-            break;
-
-        case IWM_STATISTICS_NOTIFICATION:
-            iwm_handle_rx_statistics(sc, pkt);
-            break;
-
-        case IWM_NVM_ACCESS_CMD:
-        case IWM_MCC_UPDATE_CMD:
-            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
-                memcpy(sc->sc_cmd_resp,
-                    pkt, sizeof(sc->sc_cmd_resp));
-            }
-            break;
-
-        case IWM_MCC_CHUB_UPDATE_CMD: {
-            struct iwm_mcc_chub_notif *notif;
-            notif = (struct iwm_mcc_chub_notif *)pkt->data;
-
-            sc->sc_fw_mcc[0] = (notif->mcc & 0xff00) >> 8;
-            sc->sc_fw_mcc[1] = notif->mcc & 0xff;
-            sc->sc_fw_mcc[2] = '\0';
-            XYLog("fw source %d sent CC '%s'\n",
-                notif->source_id, sc->sc_fw_mcc);
-            break;
-        }
-
-        case IWM_DTS_MEASUREMENT_NOTIFICATION:
-        case IWM_WIDE_ID(IWM_PHY_OPS_GROUP,
-                 IWM_DTS_MEASUREMENT_NOTIF_WIDE): {
-            struct iwm_dts_measurement_notif_v1 *notif;
-
-            if (iwm_rx_packet_payload_len(pkt) < sizeof(*notif)) {
-                XYLog("Invalid DTS_MEASUREMENT_NOTIFICATION\n");
-                break;
-            }
-            notif = (struct iwm_dts_measurement_notif_v1 *)pkt->data;
-            XYLog("IWM_DTS_MEASUREMENT_NOTIFICATION - %d\n",
-                notif->temp);
-            break;
-        }
-
-        case IWM_PHY_CONFIGURATION_CMD:
-        case IWM_TX_ANT_CONFIGURATION_CMD:
-        case IWM_ADD_STA:
-        case IWM_MAC_CONTEXT_CMD:
-        case IWM_REPLY_SF_CFG_CMD:
-        case IWM_POWER_TABLE_CMD:
-        case IWM_LTR_CONFIG:
-        case IWM_PHY_CONTEXT_CMD:
-        case IWM_BINDING_CONTEXT_CMD:
-        case IWM_TIME_EVENT_CMD:
-        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_CFG_CMD):
-        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_REQ_UMAC):
-        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_ABORT_UMAC):
-        case IWM_SCAN_OFFLOAD_REQUEST_CMD:
-        case IWM_SCAN_OFFLOAD_ABORT_CMD:
-        case IWM_REPLY_BEACON_FILTERING_CMD:
-        case IWM_MAC_PM_POWER_TABLE:
-        case IWM_TIME_QUOTA_CMD:
-        case IWM_REMOVE_STA:
-        case IWM_TXPATH_FLUSH:
-        case IWM_LQ_CMD:
-        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP,
-                 IWM_FW_PAGING_BLOCK_CMD):
-        case IWM_BT_CONFIG:
-        case IWM_REPLY_THERMAL_MNG_BACKOFF:
-            cresp = (struct iwm_cmd_response *)pkt->data;
-            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
-                memcpy(sc->sc_cmd_resp,
-                    pkt, sizeof(*pkt)+sizeof(*cresp));
-            }
-            break;
-
-        /* ignore */
-        case IWM_PHY_DB_CMD:
-            break;
-
-        case IWM_INIT_COMPLETE_NOTIF:
-            break;
-
-        case IWM_SCAN_OFFLOAD_COMPLETE:
-//            iwm_rx_lmac_scan_complete_notif(sc, pkt);
+//
+//            /*
+//             * Use m_copym instead of m_split, because that
+//             * makes it easier to keep a valid rx buffer in
+//             * the ring, when iwm_rx_mpdu() fails.
+//             *
+//             * We need to start m_copym() at offset 0, to get the
+//             * M_PKTHDR flag preserved.
+//             */
+//            m1 = m_copym(m, 0, M_COPYALL, M_NOWAIT);
+//            if (m1) {
+//                if (iwm_rx_mpdu(sc, m1, offset, stolen))
+//                    stolen = TRUE;
+//                else
+//                    mbuf_freem(m1);
+//            }
+//            break;
+//        }
+//
+//        case IWM_TX_CMD:
+//            iwm_rx_tx_cmd(sc, pkt);
+//            break;
+//
+//        case IWM_MISSED_BEACONS_NOTIFICATION: {
+//            struct iwm_missed_beacons_notif *resp;
+//            int missed;
+//
+//            /* XXX look at mac_id to determine interface ID */
+////            struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
+//
+//            resp = (struct iwm_missed_beacons_notif *)pkt->data;
+//            missed = le32toh(resp->consec_missed_beacons);
+//
+//            XYLog("%s: MISSED_BEACON: mac_id=%d, "
+//                "consec_since_last_rx=%d, consec=%d, num_expect=%d "
+//                "num_rx=%d\n",
+//                __func__,
+//                le32toh(resp->mac_id),
+//                le32toh(resp->consec_missed_beacons_since_last_rx),
+//                le32toh(resp->consec_missed_beacons),
+//                le32toh(resp->num_expected_beacons),
+//                le32toh(resp->num_recvd_beacons));
+//
+////            /* Be paranoid */
+////            if (vap == NULL)
+////                break;
+////
+////            /* XXX no net80211 locking? */
+////            if (vap->iv_state == IEEE80211_S_RUN &&
+////                (ic->ic_flags & IEEE80211_F_SCAN) == 0) {
+////                if (missed > vap->iv_bmissthreshold) {
+////                    /* XXX bad locking; turn into task */
+////                    IWM_UNLOCK(sc);
+////                    ieee80211_beacon_miss(ic);
+////                    IWM_LOCK(sc);
+////                }
+////            }
+//
+//            break;
+//        }
+//
+//        case IWM_MFUART_LOAD_NOTIFICATION:
+//            break;
+//
+//        case IWM_ALIVE:
+//            break;
+//
+//        case IWM_CALIB_RES_NOTIF_PHY_DB:
+//            break;
+//
+//        case IWM_STATISTICS_NOTIFICATION:
+//            iwm_handle_rx_statistics(sc, pkt);
+//            break;
+//
+//        case IWM_NVM_ACCESS_CMD:
+//        case IWM_MCC_UPDATE_CMD:
+//            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
+//                memcpy(sc->sc_cmd_resp,
+//                    pkt, sizeof(sc->sc_cmd_resp));
+//            }
+//            break;
+//
+//        case IWM_MCC_CHUB_UPDATE_CMD: {
+//            struct iwm_mcc_chub_notif *notif;
+//            notif = (struct iwm_mcc_chub_notif *)pkt->data;
+//
+//            sc->sc_fw_mcc[0] = (notif->mcc & 0xff00) >> 8;
+//            sc->sc_fw_mcc[1] = notif->mcc & 0xff;
+//            sc->sc_fw_mcc[2] = '\0';
+//            XYLog("fw source %d sent CC '%s'\n",
+//                notif->source_id, sc->sc_fw_mcc);
+//            break;
+//        }
+//
+//        case IWM_DTS_MEASUREMENT_NOTIFICATION:
+//        case IWM_WIDE_ID(IWM_PHY_OPS_GROUP,
+//                 IWM_DTS_MEASUREMENT_NOTIF_WIDE): {
+//            struct iwm_dts_measurement_notif_v1 *notif;
+//
+//            if (iwm_rx_packet_payload_len(pkt) < sizeof(*notif)) {
+//                XYLog("Invalid DTS_MEASUREMENT_NOTIFICATION\n");
+//                break;
+//            }
+//            notif = (struct iwm_dts_measurement_notif_v1 *)pkt->data;
+//            XYLog("IWM_DTS_MEASUREMENT_NOTIFICATION - %d\n",
+//                notif->temp);
+//            break;
+//        }
+//
+//        case IWM_PHY_CONFIGURATION_CMD:
+//        case IWM_TX_ANT_CONFIGURATION_CMD:
+//        case IWM_ADD_STA:
+//        case IWM_MAC_CONTEXT_CMD:
+//        case IWM_REPLY_SF_CFG_CMD:
+//        case IWM_POWER_TABLE_CMD:
+//        case IWM_LTR_CONFIG:
+//        case IWM_PHY_CONTEXT_CMD:
+//        case IWM_BINDING_CONTEXT_CMD:
+//        case IWM_TIME_EVENT_CMD:
+//        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_CFG_CMD):
+//        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_REQ_UMAC):
+//        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP, IWM_SCAN_ABORT_UMAC):
+//        case IWM_SCAN_OFFLOAD_REQUEST_CMD:
+//        case IWM_SCAN_OFFLOAD_ABORT_CMD:
+//        case IWM_REPLY_BEACON_FILTERING_CMD:
+//        case IWM_MAC_PM_POWER_TABLE:
+//        case IWM_TIME_QUOTA_CMD:
+//        case IWM_REMOVE_STA:
+//        case IWM_TXPATH_FLUSH:
+//        case IWM_LQ_CMD:
+//        case IWM_WIDE_ID(IWM_ALWAYS_LONG_GROUP,
+//                 IWM_FW_PAGING_BLOCK_CMD):
+//        case IWM_BT_CONFIG:
+//        case IWM_REPLY_THERMAL_MNG_BACKOFF:
+//            cresp = (struct iwm_cmd_response *)pkt->data;
+//            if (sc->sc_wantresp == (((qid & ~0x80) << 16) | idx)) {
+//                memcpy(sc->sc_cmd_resp,
+//                    pkt, sizeof(*pkt)+sizeof(*cresp));
+//            }
+//            break;
+//
+//        /* ignore */
+//        case IWM_PHY_DB_CMD:
+//            break;
+//
+//        case IWM_INIT_COMPLETE_NOTIF:
+//            break;
+//
+//        case IWM_SCAN_OFFLOAD_COMPLETE:
+////            iwm_rx_lmac_scan_complete_notif(sc, pkt);
+////            if (sc->sc_flags & IWM_FLAG_SCAN_RUNNING) {
+////                sc->sc_flags &= ~IWM_FLAG_SCAN_RUNNING;
+////                ieee80211_runtask(ic, &sc->sc_es_task);
+////            }
+//            break;
+//
+//        case IWM_SCAN_ITERATION_COMPLETE: {
+//            struct iwm_lmac_scan_complete_notif *notif;
+//            notif = (struct iwm_lmac_scan_complete_notif *)pkt->data;
+//            break;
+//        }
+//
+//        case IWM_SCAN_COMPLETE_UMAC:
+//            iwm_rx_umac_scan_complete_notif(sc, pkt);
 //            if (sc->sc_flags & IWM_FLAG_SCAN_RUNNING) {
 //                sc->sc_flags &= ~IWM_FLAG_SCAN_RUNNING;
 //                ieee80211_runtask(ic, &sc->sc_es_task);
 //            }
-            break;
-
-        case IWM_SCAN_ITERATION_COMPLETE: {
-            struct iwm_lmac_scan_complete_notif *notif;
-            notif = (struct iwm_lmac_scan_complete_notif *)pkt->data;
-            break;
-        }
-
-        case IWM_SCAN_COMPLETE_UMAC:
-            iwm_rx_umac_scan_complete_notif(sc, pkt);
-            if (sc->sc_flags & IWM_FLAG_SCAN_RUNNING) {
-                sc->sc_flags &= ~IWM_FLAG_SCAN_RUNNING;
-                ieee80211_runtask(ic, &sc->sc_es_task);
-            }
-            break;
-
-        case IWM_SCAN_ITERATION_COMPLETE_UMAC: {
-            struct iwm_umac_scan_iter_complete_notif *notif;
-            notif = (struct iwm_umac_scan_iter_complete_notif *)pkt->data;
-
-            IWM_DPRINTF(sc, IWM_DEBUG_SCAN, "UMAC scan iteration "
-                "complete, status=0x%x, %d channels scanned\n",
-                notif->status, notif->scanned_channels);
-            break;
-        }
-
-        case IWM_REPLY_ERROR: {
-            struct iwm_error_resp *resp;
-            resp = (void *)pkt->data;
-
-            device_printf(sc->sc_dev,
-                "firmware error 0x%x, cmd 0x%x\n",
-                le32toh(resp->error_type),
-                resp->cmd_id);
-            break;
-        }
-
-        case IWM_TIME_EVENT_NOTIFICATION:
-            iwm_rx_time_event_notif(sc, pkt);
-            break;
+//            break;
+//
+//        case IWM_SCAN_ITERATION_COMPLETE_UMAC: {
+//            struct iwm_umac_scan_iter_complete_notif *notif;
+//            notif = (struct iwm_umac_scan_iter_complete_notif *)pkt->data;
+//
+//            XYLog("complete, status=0x%x, %d channels scanned\n",
+//                notif->status, notif->scanned_channels);
+//            break;
+//        }
+//
+//        case IWM_REPLY_ERROR: {
+//            struct iwm_error_resp *resp;
+//            resp = (struct iwm_error_resp *)pkt->data;
+//
+//            XYLog("firmware error 0x%x, cmd 0x%x\n",
+//                le32toh(resp->error_type),
+//                resp->cmd_id);
+//            break;
+//        }
+//
+//        case IWM_TIME_EVENT_NOTIFICATION:
+//            iwm_rx_time_event_notif(sc, pkt);
+//            break;
 
         /*
          * Firmware versions 21 and 22 generate some DEBUG_LOG_MSG
@@ -2916,7 +2914,7 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 
         case IWM_SCD_QUEUE_CFG: {
             struct iwm_scd_txq_cfg_rsp *rsp;
-            rsp = (void *)pkt->data;
+            rsp = (struct iwm_scd_txq_cfg_rsp *)pkt->data;
 
             XYLog("queue cfg token=0x%x sta_id=%d "
                 "tid=%d scd_queue=%d\n",
@@ -2947,7 +2945,7 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
          * is actually the upper byte of a two-byte field.
          */
         if (!(qid & (1 << 7)))
-            iwm_cmd_done(sc, pkt);
+            iwm_cmd_done(sc, pkt->hdr.qid, pkt->hdr.idx, pkt->hdr.code);
 
         offset = nextoff;
     }
