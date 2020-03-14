@@ -218,8 +218,7 @@ public:
     void    iwm_enable_ht_cck_fallback(struct iwm_softc *, struct iwm_node *);
     void    iwm_rx_tx_cmd_single(struct iwm_softc *, struct iwm_rx_packet *,
             struct iwm_node *);
-    void    iwm_rx_tx_cmd(struct iwm_softc *, struct iwm_rx_packet *,
-            struct iwm_rx_data *);
+    void    iwm_rx_tx_cmd(struct iwm_softc *, struct iwm_rx_packet *);
     void    iwm_rx_bmiss(struct iwm_softc *, struct iwm_rx_packet *,
             struct iwm_rx_data *);
     int    iwm_binding_cmd(struct iwm_softc *, struct iwm_node *, uint32_t);

@@ -562,8 +562,7 @@ iwm_rx_tx_cmd_single(struct iwm_softc *sc, struct iwm_rx_packet *pkt,
 }
 
 void itlwm::
-iwm_rx_tx_cmd(struct iwm_softc *sc, struct iwm_rx_packet *pkt,
-              struct iwm_rx_data *data)
+iwm_rx_tx_cmd(struct iwm_softc *sc, struct iwm_rx_packet *pkt)
 {
     XYLog("%s\n", __func__);
     struct ieee80211com *ic = &sc->sc_ic;
@@ -578,8 +577,8 @@ iwm_rx_tx_cmd(struct iwm_softc *sc, struct iwm_rx_packet *pkt,
     if (txd->done)
         return;
     
-    bus_dmamap_sync(sc->sc_dmat, data->map, 0, IWM_RBUF_SIZE,
-                    BUS_DMASYNC_POSTREAD);
+//    bus_dmamap_sync(sc->sc_dmat, data->map, 0, IWM_RBUF_SIZE,
+//                    BUS_DMASYNC_POSTREAD);
     
     sc->sc_tx_timer = 0;
     
@@ -2647,6 +2646,7 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 {
     struct ieee80211com *ic = &sc->sc_ic;
     struct iwm_cmd_response *cresp;
+    struct mbuf_list ml = MBUF_LIST_INITIALIZER();
     mbuf_t m1;
     uint32_t offset = 0;
     uint32_t maxoff = IWM_RBUF_SIZE;
@@ -2689,7 +2689,7 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
             iwm_rx_rx_phy_cmd(sc, pkt);
             break;
 
-//        case IWM_REPLY_RX_MPDU_CMD: {
+        case IWM_REPLY_RX_MPDU_CMD: {
 //            /*
 //             * If this is the last frame in the RX buffer, we
 //             * can directly feed the mbuf to the sharks here.
@@ -2725,12 +2725,12 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 //                else
 //                    mbuf_freem(m1);
 //            }
-//            break;
-//        }
-//
-//        case IWM_TX_CMD:
-//            iwm_rx_tx_cmd(sc, pkt);
-//            break;
+            break;
+        }
+
+        case IWM_TX_CMD:
+            iwm_rx_tx_cmd(sc, pkt);
+            break;
 //
 //        case IWM_MISSED_BEACONS_NOTIFICATION: {
 //            struct iwm_missed_beacons_notif *resp;
@@ -2770,14 +2770,14 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 //            break;
 //        }
 //
-//        case IWM_MFUART_LOAD_NOTIFICATION:
-//            break;
-//
-//        case IWM_ALIVE:
-//            break;
-//
-//        case IWM_CALIB_RES_NOTIF_PHY_DB:
-//            break;
+        case IWM_MFUART_LOAD_NOTIFICATION:
+            break;
+
+        case IWM_ALIVE:
+            break;
+
+        case IWM_CALIB_RES_NOTIF_PHY_DB:
+            break;
 //
 //        case IWM_STATISTICS_NOTIFICATION:
 //            iwm_handle_rx_statistics(sc, pkt);
@@ -2888,15 +2888,15 @@ iwm_handle_rxb(struct iwm_softc *sc, mbuf_t m)
 //            break;
 //        }
 //
-//        case IWM_REPLY_ERROR: {
-//            struct iwm_error_resp *resp;
-//            resp = (struct iwm_error_resp *)pkt->data;
-//
-//            XYLog("firmware error 0x%x, cmd 0x%x\n",
-//                le32toh(resp->error_type),
-//                resp->cmd_id);
-//            break;
-//        }
+        case IWM_REPLY_ERROR: {
+            struct iwm_error_resp *resp;
+            resp = (struct iwm_error_resp *)pkt->data;
+
+            XYLog("firmware error 0x%x, cmd 0x%x\n",
+                le32toh(resp->error_type),
+                resp->cmd_id);
+            break;
+        }
 //
 //        case IWM_TIME_EVENT_NOTIFICATION:
 //            iwm_rx_time_event_notif(sc, pkt);
